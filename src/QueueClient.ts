@@ -135,7 +135,7 @@ export default class QueueClient<Item = HasId, Result = HasId> {
   }
 
   /**
-   * Remove item from the queue and add the job's result to the next
+   * Remove item from the queue and add the job's result to the next queue
    * @param item the item to mark as complete
    * @param result the result of the job
    * @returns whether the item was in the queue
