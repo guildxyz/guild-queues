@@ -1,4 +1,5 @@
-import { createClient } from "redis";
+import { RedisClientOptions, createClient } from "redis";
+import Queue from "./classes/Queue";
 
 // Interfaces
 
@@ -22,22 +23,7 @@ export type FlowId = string;
 
 export type AnyObject = { [key: string]: any };
 
-// Options
-
-export type QueueOptions = {
-  redisClient: RedisClient;
-  queueName: string;
-  nextQueueName?: string;
-  logger?: ILogger;
-  lockTime?: number;
-  attributesToGet: string[];
-};
-
-export type QueueFactoryOptions = {
-  redisClient: RedisClient;
-  logger?: ILogger;
-  lockTime?: number;
-};
+export type QueueName = "preparation" | "access-check" | "update-membership";
 
 // Jobs and Results
 
@@ -47,29 +33,37 @@ export type BaseJob = {
   roleIds: number[];
 };
 
+export type BaseResult = {
+  nextQueue?: QueueName;
+};
+
 export type PreparationJob = BaseJob & { recheckAccess: boolean };
+
+export type PreparationResult = BaseResult & {
+  nextQueue: "access-check" | "update-membership";
+};
 
 export type AccessCheckJob = BaseJob & {
   updateMemberships: boolean;
 };
 
-export type AccessCheckResult = {
-  roleId: number;
-  access: boolean;
-  requirements: {
-    requirementId: number;
-    access: true;
-    amount: number;
+export type AccessCheckResult = BaseResult & {
+  accessesResult: {
+    roleId: number;
+    access: boolean;
+    requirements: {
+      requirementId: number;
+      access: true;
+      amount: number;
+    }[];
   }[];
-}[];
+};
 
 export type UpdateMembershipJob = AccessCheckResult;
 
 export type UpdateMembershipResult = number[];
 
 export type ManageRewardJob = number[];
-
-// export type ManageRewardResult =
 
 export type FlowOptions = {
   userId: number;
@@ -86,4 +80,32 @@ export type FlowData = FlowOptions & {
   status: "waiting" | "preparation done" | "access check done";
   accessCheckResult?: AccessCheckResult;
   updateMembershipResult?: UpdateMembershipResult;
+};
+
+// Functions
+
+export type WorkerFunction<Job extends BaseJob, Result> = (
+  job: Job
+) => Promise<Result>;
+
+// Options
+
+export type AccessFlowOptions = {
+  redisClientOptions: RedisClientOptions;
+  logger?: ILogger;
+};
+
+export type QueueOptions = {
+  queueName: QueueName;
+  nextQueueName?: string;
+  attributesToGet: string[];
+};
+
+export type WorkerOptions<Job extends BaseJob, Result> = {
+  queue: Queue;
+  workerFunction: WorkerFunction<Job, Result>;
+  logger?: ILogger;
+  lockTime?: number;
+  waitTimeout?: number;
+  redisClientOptions: RedisClientOptions;
 };
