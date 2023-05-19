@@ -48,7 +48,7 @@ export type AccessCheckJob = BaseJob & {
 };
 
 export type AccessCheckResult = BaseResult & {
-  accessesResult: {
+  accessCheckResult: {
     roleId: number;
     access: boolean;
     requirements: {
@@ -65,9 +65,10 @@ export type UpdateMembershipResult = number[];
 
 export type ManageRewardJob = number[];
 
-export type FlowOptions = {
+export type CreateAccessFlowOptions = {
   userId: number;
   roleIds: number[];
+  guildId: number;
   priority: number;
   recheckAccess: boolean;
   updateMemberships: boolean;
@@ -76,7 +77,7 @@ export type FlowOptions = {
   onlyForThisPlatform?: string;
 };
 
-export type FlowData = FlowOptions & {
+export type AccessFlowData = CreateAccessFlowOptions & {
   status: "waiting" | "preparation done" | "access check done";
   accessCheckResult?: AccessCheckResult;
   updateMembershipResult?: UpdateMembershipResult;

@@ -3,6 +3,7 @@ import { v4 as uuidV4 } from "uuid";
 import { createClient } from "redis";
 import Queue from "./Queue";
 import {
+  AnyObject,
   BaseJob,
   BaseResult,
   FlowId,
@@ -140,10 +141,12 @@ export default class Worker<Job extends BaseJob, Result extends BaseResult> {
     const flowKey = `flow:${flowId}`;
     const { nextQueue } = result;
 
+    const propertiesToSave: AnyObject = result;
+    delete propertiesToSave.nextQueue;
+    propertiesToSave.status = `${this.queue.name} done`;
+
     // save the result
-    if (result) {
-      await hSetMore(this.nonBlockingRedis, flowKey, result);
-    }
+    await hSetMore(this.nonBlockingRedis, flowKey, propertiesToSave);
 
     const itemLockKey = `${this.queue.lockPrefixKey}:${flowId}`;
     const nextQueueKey = nextQueue
@@ -188,7 +191,7 @@ export default class Worker<Job extends BaseJob, Result extends BaseResult> {
   /**
    * Connect to redis client
    */
-  connect = async () => {
+  public connect = async () => {
     await this.blockingRedis.connect();
     await this.nonBlockingRedis.connect();
     return this;
@@ -197,7 +200,7 @@ export default class Worker<Job extends BaseJob, Result extends BaseResult> {
   /**
    * Disconnect from redis client
    */
-  disconnect = async () => {
+  public disconnect = async () => {
     await this.blockingRedis.disconnect();
     await this.nonBlockingRedis.disconnect();
     return this;
@@ -206,7 +209,7 @@ export default class Worker<Job extends BaseJob, Result extends BaseResult> {
   /**
    * Start the job execution
    */
-  start = async () => {
+  public start = async () => {
     this.logger?.info("Starting worker", {
       queueName: this.queue.name,
       workerId: this.id,
@@ -235,7 +238,7 @@ export default class Worker<Job extends BaseJob, Result extends BaseResult> {
   /**
    * Stop the job execution (the current job will be completed)
    */
-  stop = async () => {
+  public stop = async () => {
     this.logger?.info("Stopping worker", {
       queueName: this.queue.name,
       workerId: this.id,

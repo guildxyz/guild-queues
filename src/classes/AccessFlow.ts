@@ -1,19 +1,19 @@
 import { v4 as uuidV4 } from "uuid";
 import { RedisClientOptions, createClient } from "redis";
 import {
-  FlowOptions,
+  AccessFlowOptions,
   FlowId,
   AccessCheckJob,
   AccessCheckResult,
   PreparationJob,
-  AccessFlowOptions,
   WorkerFunction,
   PreparationResult,
   RedisClient,
+  CreateAccessFlowOptions,
 } from "../types";
 import Queue from "./Queue";
 import Worker from "./Worker";
-import { hSetMore } from "../utils";
+import { objectToStringEntries, parseObject } from "../utils";
 
 /**
  * Class to store queues, instantiate workers, and create flows
@@ -89,12 +89,65 @@ export default class AccessFlow {
    * @param options parameters of the flow
    * @returns flow's id
    */
-  createFlow = async (options: FlowOptions): Promise<FlowId> => {
+  createFlow = async (options: CreateAccessFlowOptions): Promise<FlowId> => {
+    // generate id for the flow
     const flowId = uuidV4();
     const flowKey = `${AccessFlow.flowPrefix}:${flowId}`;
-    await hSetMore(this.redis, flowKey, options);
-    await this.redis.rPush(this.preparationQueue.waitingQueueKey, flowId);
+
+    const transaction = this.redis
+      .multi()
+      // create the state with the parameters
+      .hSet(flowKey, objectToStringEntries(options))
+      // lookup by userId
+      .rPush(`${AccessFlow.flowPrefix}:userId:${options.userId}`, flowId)
+      // lookup by guildId
+      .rPush(`${AccessFlow.flowPrefix}:guildId:${options.guildId}`, flowId);
+
+    // lookup by roleIds
+    options.roleIds.forEach((roleId) => {
+      transaction.rPush(`${AccessFlow.flowPrefix}:roleId:${roleId}`, flowId);
+    });
+
+    // put to the first queue
+    transaction.rPush(this.preparationQueue.waitingQueueKey, flowId);
+
+    // execute transaction
+    await transaction.exec();
+
     return flowId;
+  };
+
+  /**
+   * Get flow states by flowIds
+   * @param flowIds flowIds to get
+   * @returns flow states
+   */
+  private getFlows = async (flowIds: string[]) => {
+    const transaction = this.redis.multi();
+    flowIds.forEach((flowId) => {
+      const flowKey = `${AccessFlow.flowPrefix}:${flowId}`;
+      transaction.hGetAll(flowKey);
+    });
+    const flows = await transaction.exec();
+    return flows.map((f) => parseObject(f as any));
+  };
+
+  /**
+   * Get flow stated by some ids
+   * @param keyName name of the id
+   * @param value value of the id
+   * @returns flow states
+   */
+  getFlowsById = async (
+    keyName: "userId" | "roleId" | "guildId",
+    value: number
+  ) => {
+    const flowIds = await this.redis.lRange(
+      `${AccessFlow.flowPrefix}:${keyName}:${value}`,
+      0,
+      -1
+    );
+    return this.getFlows(flowIds);
   };
 
   /**

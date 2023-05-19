@@ -21,6 +21,7 @@ export const stringify = (value: any): string => {
 type KeyType = "number" | "number[]" | "boolean" | "string" | "object";
 const keyTypeMap = new Map<string, KeyType>([
   ["userId", "number"],
+  ["guildId", "number"],
   ["roleIds", "number[]"],
   ["priority", "number"],
   ["recheckAccess", "boolean"],
@@ -28,6 +29,8 @@ const keyTypeMap = new Map<string, KeyType>([
   ["manageRewards", "boolean"],
   ["forceRewardActions", "boolean"],
   ["onlyForThisPlatform", "string"],
+  ["status", "string"],
+  ["accessCheckResult", "object"],
 ]);
 
 export const parse = (keyName: string, value: string) => {
@@ -47,6 +50,14 @@ export const parse = (keyName: string, value: string) => {
   }
 };
 
+export const parseObject = (obj: { [key: string]: string }) =>
+  Object.fromEntries(
+    Object.entries(obj).map(([key, value]) => [key, parse(key, value)])
+  );
+
+export const objectToStringEntries = (obj: any) =>
+  Object.entries(obj).map<[string, string]>(([k, v]) => [k, stringify(v)]);
+
 /**
  * Add object's properties to Redis hash as fields
  * @param key redis key
@@ -57,11 +68,7 @@ export const hSetMore = async (
   redis: RedisClient,
   key: string,
   value: any
-): Promise<number> =>
-  redis.hSet(
-    key,
-    Object.entries(value).map<[string, string]>(([k, v]) => [k, stringify(v)])
-  );
+): Promise<number> => redis.hSet(key, objectToStringEntries(value));
 
 /**
  * Query multiple Redis hash fields
