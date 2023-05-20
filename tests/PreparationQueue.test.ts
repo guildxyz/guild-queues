@@ -1,11 +1,21 @@
-import QueueFactory from "../src/QueueFactory";
-import { REDIS_CLIENT, TEST_FLOW_OPTIONS, TEST_OPTIONS } from "./common";
+/* eslint-disable dot-notation */
+import AccessFlow from "../src/classes/AccessFlow";
+import {
+  REDIS_CLIENT,
+  TEST_FLOW_OPTIONS,
+  TEST_ACCESS_FLOW_OPTIONS,
+} from "./common";
 
 export const TEST_USER_ID = 999;
 export const TEST_ROLE_IDS = [123, 456, 789];
 
+let accessFlow: AccessFlow;
+
 beforeAll(async () => {
   await REDIS_CLIENT.connect();
+
+  accessFlow = new AccessFlow(TEST_ACCESS_FLOW_OPTIONS);
+  await accessFlow.connect();
 });
 
 beforeEach(async () => {
@@ -13,6 +23,8 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
+  await accessFlow.disconnect();
+
   await REDIS_CLIENT.flushDb();
   await REDIS_CLIENT.disconnect();
 });
@@ -20,12 +32,14 @@ afterAll(async () => {
 describe("Check preparation queue", () => {
   test("Check lease (depends on createFlow)", async () => {
     // setup
-    const qf = new QueueFactory(TEST_OPTIONS);
-    const flowId = await qf.createFlow(TEST_FLOW_OPTIONS);
-    const queue = qf.getPreparationQueue();
+    const flowId = await accessFlow.createFlow(TEST_FLOW_OPTIONS);
+    const worker = accessFlow.getPreparationWorker(async () => ({
+      nextQueue: "access-check",
+    }));
+    await worker.connect();
 
     // call lease
-    const preparationJob = await queue.lease();
+    const preparationJob = await worker["lease"](10);
 
     // check return value
     expect(preparationJob.flowId).toBe(flowId);
@@ -35,34 +49,37 @@ describe("Check preparation queue", () => {
 
     // check queues
     const waitingQueueItems = await REDIS_CLIENT.lRange(
-      queue.waitingQueueKey,
+      worker.queue.waitingQueueKey,
       0,
       -1
     );
     expect(waitingQueueItems.length).toBe(0);
 
     const processingQueueItems = await REDIS_CLIENT.lRange(
-      queue.processingQueueKey,
+      worker.queue.processingQueueKey,
       0,
       -1
     );
     expect(processingQueueItems.length).toBe(1);
     expect(processingQueueItems[0]).toBe(flowId);
+
+    // cleanup
+    await worker.disconnect();
   });
 
   test("Check complete (depends on createFlow and lease)", async () => {
     // setup
-    const qf = new QueueFactory(TEST_OPTIONS);
-    const flowId = await qf.createFlow(TEST_FLOW_OPTIONS);
-    const queue = qf.getPreparationQueue();
-    const preparationJob = await queue.lease();
+    const flowId = await accessFlow.createFlow(TEST_FLOW_OPTIONS);
+    const worker = accessFlow.getPreparationWorker(async () => ({
+      nextQueue: "access-check",
+    }));
+    await worker.connect();
+    const preparationJob = await worker["lease"](10);
 
     // call complete
-    const success = await queue.complete(
-      preparationJob.flowId,
-      undefined,
-      "access-check"
-    );
+    const success = await worker["complete"](preparationJob.flowId, {
+      nextQueue: "access-check",
+    });
 
     // check return value
     expect(success).toBe(true);
@@ -74,7 +91,7 @@ describe("Check preparation queue", () => {
 
     // check queues
     const processingQueueItems = await REDIS_CLIENT.lRange(
-      queue.processingQueueKey,
+      worker.queue.processingQueueKey,
       0,
       -1
     );
@@ -87,5 +104,8 @@ describe("Check preparation queue", () => {
     );
     expect(nextQueueItems.length).toBe(1);
     expect(nextQueueItems[0]).toBe(flowId);
+
+    // cleanup
+    await worker.disconnect();
   });
 });

@@ -98,7 +98,7 @@ export type AccessFlowOptions = {
 
 export type QueueOptions = {
   queueName: QueueName;
-  nextQueueName?: string;
+  nextQueueName?: QueueName;
   attributesToGet: string[];
 };
 

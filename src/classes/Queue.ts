@@ -44,17 +44,10 @@ export default class Queue {
    * @param options parameters of the queue
    */
   constructor(options: QueueOptions) {
-    const defaultValues = {
-      attributesToGet: [] as string[],
-    };
-
-    const { queueName, nextQueueName, attributesToGet } = {
-      ...defaultValues,
-      ...options,
-    };
+    const { queueName, nextQueueName, attributesToGet } = options;
 
     this.name = queueName;
-    this.attributesToGet = ["userId", "roleIds", ...attributesToGet];
+    this.attributesToGet = attributesToGet;
 
     this.waitingQueueKey = `${Queue.keyPrefix}:${queueName}:waiting`;
     this.processingQueueKey = `${Queue.keyPrefix}:${queueName}:processing`;

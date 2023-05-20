@@ -1,5 +1,9 @@
-import QueueFactory from "../src/QueueFactory";
-import { REDIS_CLIENT, TEST_FLOW_OPTIONS, TEST_OPTIONS } from "./common";
+import AccessFlow from "../src/classes/AccessFlow";
+import {
+  REDIS_CLIENT,
+  TEST_FLOW_OPTIONS,
+  TEST_ACCESS_FLOW_OPTIONS,
+} from "./common";
 
 beforeAll(async () => {
   await REDIS_CLIENT.connect();
@@ -14,13 +18,14 @@ afterAll(async () => {
   await REDIS_CLIENT.disconnect();
 });
 
-describe("Check QueueFactory", () => {
+describe("Check AccessFlow", () => {
   test("Check createFlow", async () => {
     // setup
-    const qf = new QueueFactory(TEST_OPTIONS);
+    const af = new AccessFlow(TEST_ACCESS_FLOW_OPTIONS);
+    await af.connect();
 
     // call createFlow
-    const flowId = await qf.createFlow(TEST_FLOW_OPTIONS);
+    const flowId = await af.createFlow(TEST_FLOW_OPTIONS);
 
     // check flow
     const flow = await REDIS_CLIENT.hGetAll(`flow:${flowId}`);
@@ -35,7 +40,7 @@ describe("Check QueueFactory", () => {
     expect(flow.priority).toBe("1");
 
     // check queues
-    const preparationQueue = qf.getPreparationQueue();
+    const { preparationQueue } = af;
     const waitingQueueItems = await REDIS_CLIENT.lRange(
       preparationQueue.waitingQueueKey,
       0,
@@ -50,5 +55,8 @@ describe("Check QueueFactory", () => {
       -1
     );
     expect(processingQueueItems.length).toBe(0);
+
+    // cleanup
+    await af.disconnect();
   });
 });
