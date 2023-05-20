@@ -1,6 +1,6 @@
 {
   "name": "@guildxyz/queues",
-  "version": "1.0.2",
+  "version": "1.0.0",
   "description": "Redis-based distributed queue library for Guild.xyz's backend infrastructure.",
   "main": "./build/src/index.js",
   "types": "./build/src/index.d.ts",
@@ -9,18 +9,16 @@
     "test": "jest",
     "build": "tsc",
     "prepare": "npm run build",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "clean": "rm -rf ./node_modules ./build"
   },
   "dependencies": {
-    "fast-json-stable-stringify": "^2.1.0",
-    "object-hash": "^3.0.0",
     "redis": "^4.6.6",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
     "@types/jest": "^27.4.1",
     "@types/node": "^17.0.21",
-    "@types/object-hash": "^3.0.2",
     "@types/uuid": "^9.0.1",
     "@typescript-eslint/eslint-plugin": "^5.14.0",
     "@typescript-eslint/parser": "^5.14.0",
