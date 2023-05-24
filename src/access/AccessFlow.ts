@@ -1,19 +1,26 @@
 import { v4 as uuidV4 } from "uuid";
 import { RedisClientOptions, createClient } from "redis";
+import Queue from "../base/Queue";
+import { objectToStringEntries, parseObject } from "../utils";
+import { RedisClient, WorkerFunction } from "../base/types";
 import {
   AccessFlowOptions,
-  FlowId,
+  CreateAccessFlowOptions,
+  PreparationJob,
+  PreparationResult,
   AccessCheckJob,
   AccessCheckResult,
-  PreparationJob,
-  WorkerFunction,
-  PreparationResult,
-  RedisClient,
-  CreateAccessFlowOptions,
-} from "../types";
-import Queue from "./Queue";
-import Worker from "./Worker";
-import { objectToStringEntries, parseObject } from "../utils";
+  UpdateMembershipJob,
+  UpdateMembershipResult,
+} from "./types";
+import AccessWorker from "./AccessWorker";
+import PrepareManageRewardWorker from "./manage-reward/PrepareManageRewardWorker";
+import {
+  ManageRewardJob,
+  PrepareManageRewardJob,
+  PrepareManageRewardResult,
+} from "./manage-reward/types";
+import ChildWorker from "../base/hierarchcal/ChildWorker";
 
 /**
  * Class to store queues, instantiate workers, and create flows
@@ -37,7 +44,22 @@ export default class AccessFlow {
   /**
    * Access-check queue instance
    */
-  readonly accessCheck: Queue;
+  readonly accessCheckQueue: Queue;
+
+  /**
+   * Update-membership queue instance
+   */
+  readonly updateMembershipQueue: Queue;
+
+  /**
+   * Prepare-manage-reward queue instance
+   */
+  readonly prepareManageRewardQueue: Queue;
+
+  /**
+   * Send-response queue instance
+   */
+  readonly sendResponseQueue: Queue;
 
   /**
    * Options to create redis connections
@@ -61,11 +83,29 @@ export default class AccessFlow {
       queueName: "preparation",
       attributesToGet: [...AccessFlow.defaultAttributesToGet, "recheckAccess"],
     });
-    this.accessCheck = new Queue({
+    this.accessCheckQueue = new Queue({
       queueName: "access-check",
       attributesToGet: [
         ...AccessFlow.defaultAttributesToGet,
         "updateMemberships",
+      ],
+    });
+    this.updateMembershipQueue = new Queue({
+      queueName: "update-membership",
+      attributesToGet: [
+        ...AccessFlow.defaultAttributesToGet,
+        "accessCheckResult",
+        "manageRewards",
+      ],
+    });
+    this.prepareManageRewardQueue = new Queue({
+      queueName: "prepare-manage-reward",
+      attributesToGet: [
+        ...AccessFlow.defaultAttributesToGet,
+        "updateMembershipResult",
+        "guildId",
+        "forceRewardActions",
+        "onlyForThisPlatform",
       ],
     });
   }
@@ -89,7 +129,7 @@ export default class AccessFlow {
    * @param options parameters of the flow
    * @returns flow's id
    */
-  createFlow = async (options: CreateAccessFlowOptions): Promise<FlowId> => {
+  createFlow = async (options: CreateAccessFlowOptions): Promise<string> => {
     // generate id for the flow
     const flowId = uuidV4();
     const flowKey = `${AccessFlow.flowPrefix}:${flowId}`;
@@ -160,8 +200,8 @@ export default class AccessFlow {
     workerFunction: WorkerFunction<PreparationJob, PreparationResult>,
     lockTime?: number,
     waitTimeout?: number
-  ): Worker<PreparationJob, PreparationResult> =>
-    new Worker({
+  ): AccessWorker<PreparationJob, PreparationResult> =>
+    new AccessWorker({
       queue: this.preparationQueue,
       redisClientOptions: this.redisClientOptions,
       workerFunction,
@@ -179,9 +219,70 @@ export default class AccessFlow {
     workerFunction: WorkerFunction<AccessCheckJob, AccessCheckResult>,
     lockTime?: number,
     waitTimeout?: number
-  ): Worker<AccessCheckJob, AccessCheckResult> =>
-    new Worker({
-      queue: this.accessCheck,
+  ): AccessWorker<AccessCheckJob, AccessCheckResult> =>
+    new AccessWorker({
+      queue: this.accessCheckQueue,
+      redisClientOptions: this.redisClientOptions,
+      workerFunction,
+      lockTime,
+      waitTimeout,
+    });
+
+  /**
+   * Get an update-membership worker instance
+   * @param lockTime a job will be locked for this amount of time
+   * @param waitTimeout the worker will wait this amount of time before checking if it is stopped
+   * @returns Worker instance
+   */
+  getUpdateMembershipWorker = (
+    workerFunction: WorkerFunction<UpdateMembershipJob, UpdateMembershipResult>,
+    lockTime?: number,
+    waitTimeout?: number
+  ): AccessWorker<UpdateMembershipJob, UpdateMembershipResult> =>
+    new AccessWorker({
+      queue: this.updateMembershipQueue,
+      redisClientOptions: this.redisClientOptions,
+      workerFunction,
+      lockTime,
+      waitTimeout,
+    });
+
+  /**
+   * Get an prepare-manage-reward worker instance
+   * @param lockTime a job will be locked for this amount of time
+   * @param waitTimeout the worker will wait this amount of time before checking if it is stopped
+   * @returns Worker instance
+   */
+  getPrepareManageRewardWorker = (
+    workerFunction: WorkerFunction<
+      PrepareManageRewardJob,
+      PrepareManageRewardResult
+    >,
+    lockTime?: number,
+    waitTimeout?: number
+  ): PrepareManageRewardWorker =>
+    new PrepareManageRewardWorker({
+      queue: this.prepareManageRewardQueue,
+      redisClientOptions: this.redisClientOptions,
+      workerFunction,
+      lockTime,
+      waitTimeout,
+    });
+
+  /**
+   * Get an prepare-manage-reward worker instance
+   * @param lockTime a job will be locked for this amount of time
+   * @param waitTimeout the worker will wait this amount of time before checking if it is stopped
+   * @returns Worker instance
+   */
+  getManageRewardWorker = (
+    platform: string,
+    workerFunction: WorkerFunction<ManageRewardJob, any>,
+    lockTime?: number,
+    waitTimeout?: number
+  ): ChildWorker<ManageRewardJob, any> =>
+    new ChildWorker<ManageRewardJob, any>({
+      queue: this.prepareManageRewardQueue, // TODO
       redisClientOptions: this.redisClientOptions,
       workerFunction,
       lockTime,

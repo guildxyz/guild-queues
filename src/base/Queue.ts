@@ -1,4 +1,4 @@
-import { QueueOptions } from "../types";
+import { QueueOptions } from "./types";
 
 /**
  * Stores a queue's properties

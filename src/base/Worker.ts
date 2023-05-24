@@ -3,21 +3,14 @@ import { v4 as uuidV4 } from "uuid";
 import { createClient } from "redis";
 import Queue from "./Queue";
 import {
-  AnyObject,
   BaseJob,
-  BaseResult,
-  FlowId,
+  WorkerFunction,
   ILogger,
   RedisClient,
-  WorkerFunction,
   WorkerOptions,
-} from "../types";
-import { hGetMore, hSetMore } from "../utils";
+} from "./types";
 
-/**
- * Defines a worker, the framework for job execution
- */
-export default class Worker<Job extends BaseJob, Result extends BaseResult> {
+export default abstract class Worker<Job extends BaseJob, Result> {
   /**
    * Uuid of the worker
    */
@@ -36,17 +29,17 @@ export default class Worker<Job extends BaseJob, Result extends BaseResult> {
   /**
    * Provided logger (no logs if null)
    */
-  private logger: ILogger;
+  protected logger: ILogger;
 
   /**
    * Redis instance for blocking operations
    */
-  private blockingRedis: RedisClient;
+  protected blockingRedis: RedisClient;
 
   /**
    * Redis instance for non-blocking operations
    */
-  private nonBlockingRedis: RedisClient;
+  protected nonBlockingRedis: RedisClient;
 
   /**
    * Loop for running jobs
@@ -98,95 +91,9 @@ export default class Worker<Job extends BaseJob, Result extends BaseResult> {
     this.status = "ready";
   }
 
-  /**
-   * Lock a job for execution and return it
-   * @param timeout maximum number of seconds to block (zero means block indefinitely)
-   * @returns the job
-   */
-  private async lease(timeout: number): Promise<Job> {
-    // move a job from the waiting queue to the processing queue
-    const flowId: FlowId = await this.blockingRedis.blMove(
-      this.queue.waitingQueueKey,
-      this.queue.processingQueueKey,
-      "LEFT",
-      "RIGHT",
-      timeout
-    );
+  protected abstract lease(timeout: number): Promise<Job>;
 
-    // set a lock for the job with expiration
-    const itemLockKey = `${this.queue.lockPrefixKey}:${flowId}`;
-    await this.nonBlockingRedis.set(itemLockKey, this.id, {
-      EX: this.lockTime,
-    });
-
-    // get the flow's state attributes
-    const flowKey = `flow:${flowId}`;
-    const attributes = await hGetMore(
-      this.nonBlockingRedis,
-      flowKey,
-      this.queue.attributesToGet
-    );
-
-    // return job with flowId
-    return { flowId, ...attributes } as Job;
-  }
-
-  /**
-   * Updates the flow's status, removed the specified job from the queue and adds it to the next one
-   * @param flowId the job's flow id
-   * @param result the result of the job
-   * @returns whether it was successful
-   */
-  private async complete(flowId: FlowId, result?: Result): Promise<boolean> {
-    const flowKey = `flow:${flowId}`;
-    const { nextQueue } = result;
-
-    const propertiesToSave: AnyObject = result;
-    delete propertiesToSave.nextQueue;
-    propertiesToSave.status = `${this.queue.name} done`;
-
-    // save the result
-    await hSetMore(this.nonBlockingRedis, flowKey, propertiesToSave);
-
-    const itemLockKey = `${this.queue.lockPrefixKey}:${flowId}`;
-    const nextQueueKey = nextQueue
-      ? `queue:${nextQueue}:waiting`
-      : this.queue.nextQueueKey;
-
-    // put job to next queue, and remove it from the current one
-    const [_, removedItemCount, removedLockCount] = await this.nonBlockingRedis
-      .multi()
-      .rPush(nextQueueKey, flowId)
-      .lRem(this.queue.processingQueueKey, 1, flowId)
-      .del(itemLockKey)
-      .exec();
-
-    // check if the job was remove successfully from the current queue
-    if (+removedItemCount > 0) {
-      this.logger?.debug("complete succeed", { removedLockCount });
-      return true;
-    }
-
-    // if the item was not present in the current queue (inconsistency)
-    // try to abort it: remove from the next queue
-    const abortResult = await this.nonBlockingRedis.lRem(
-      this.queue.nextQueueKey,
-      -1,
-      flowId
-    );
-
-    this.logger?.warn(
-      `inconsistency in complete(), item not found in processing queue`,
-      {
-        name: this.queue.name,
-        processingQueueKey: this.queue.processingQueueKey,
-        flowId,
-        abortResult,
-      }
-    );
-
-    return false;
-  }
+  protected abstract complete(jobId: string, result?: Result): Promise<boolean>;
 
   /**
    * Connect to redis client
@@ -226,7 +133,7 @@ export default class Worker<Job extends BaseJob, Result extends BaseResult> {
         // if there's a job execute it
         if (job) {
           const result = await this.workerFunction(job);
-          await this.complete(job.flowId, result);
+          await this.complete(job.id, result);
         }
         // else check if worker is still running and retry
       }

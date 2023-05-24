@@ -1,4 +1,4 @@
-import { AnyObject, RedisClient } from "./types";
+import { AnyObject, RedisClient } from "./base/types";
 
 export const stringify = (value: any): string => {
   if (Array.isArray(value) && typeof value[0] === "number") {
@@ -31,6 +31,7 @@ const keyTypeMap = new Map<string, KeyType>([
   ["onlyForThisPlatform", "string"],
   ["status", "string"],
   ["accessCheckResult", "object"],
+  ["updateMembershipResult", "object"],
 ]);
 
 export const parse = (keyName: string, value: string) => {

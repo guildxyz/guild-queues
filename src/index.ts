@@ -1,4 +1,3 @@
-export { default as AccessFlow } from "./classes/AccessFlow";
-export { default as Queue } from "./classes/Queue";
-export { default as Worker } from "./classes/Worker";
-export * from "./types";
+export { default as AccessFlow } from "./access/AccessFlow";
+export { default as Queue } from "./base/Queue";
+export { default as Worker } from "./base/primary/PrimaryWorker";
