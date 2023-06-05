@@ -12,15 +12,13 @@ import {
   AccessCheckResult,
   UpdateMembershipJob,
   UpdateMembershipResult,
-} from "./types";
-import AccessWorker from "./AccessWorker";
-import PrepareManageRewardWorker from "./manage-reward/PrepareManageRewardWorker";
-import {
   ManageRewardJob,
   PrepareManageRewardJob,
   PrepareManageRewardResult,
-} from "./manage-reward/types";
-import ChildWorker from "../base/hierarchcal/ChildWorker";
+} from "./types";
+import AccessWorker from "./workers/AccessWorker";
+import PrepareManageRewardWorker from "./workers/PrepareManageRewardWorker";
+import ManageRewardWorker from "./workers/ManageRewardWorker";
 
 /**
  * Class to store queues, instantiate workers, and create flows
@@ -60,6 +58,8 @@ export default class AccessFlow {
    * Send-response queue instance
    */
   readonly sendResponseQueue: Queue;
+
+  readonly childQueues: Map<string, Queue> = new Map();
 
   /**
    * Options to create redis connections
@@ -269,23 +269,30 @@ export default class AccessFlow {
       waitTimeout,
     });
 
-  /**
-   * Get an prepare-manage-reward worker instance
-   * @param lockTime a job will be locked for this amount of time
-   * @param waitTimeout the worker will wait this amount of time before checking if it is stopped
-   * @returns Worker instance
-   */
+  public getChildQueue = (childQueueName: string) => {
+    let childQueue = this.childQueues.get(childQueueName);
+    if (!childQueue) {
+      childQueue = new Queue({
+        queueName: childQueueName,
+      });
+      this.childQueues.set(childQueueName, childQueue);
+    }
+    return childQueue;
+  };
+
   getManageRewardWorker = (
     platform: string,
     workerFunction: WorkerFunction<ManageRewardJob, any>,
     lockTime?: number,
     waitTimeout?: number
-  ): ChildWorker<ManageRewardJob, any> =>
-    new ChildWorker<ManageRewardJob, any>({
-      queue: this.prepareManageRewardQueue, // TODO
+  ): ManageRewardWorker => {
+    const childQueue = this.getChildQueue(`manage-reward:${platform}`);
+    return new ManageRewardWorker({
+      queue: childQueue,
       redisClientOptions: this.redisClientOptions,
       workerFunction,
       lockTime,
       waitTimeout,
     });
+  };
 }

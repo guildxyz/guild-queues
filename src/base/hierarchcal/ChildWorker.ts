@@ -46,18 +46,30 @@ export default class ChildWorker<
     const transaction = this.nonBlockingRedis.multi();
 
     // save result
-    transaction.hSet(flowKey, childKey, JSON.stringify(result));
+    if (result) {
+      transaction.hSet(flowKey, childKey, JSON.stringify(result));
+    }
 
     // increment childDoneCount by 1
     transaction.hIncrBy(flowKey, "childDoneCount", 1);
 
+    // get the child count
+    transaction.hGet(flowKey, "childCount");
+
     // remove job from the current queue
-    transaction.lRem(this.queue.processingQueueKey, 1, jobId).del(itemLockKey);
+    transaction.lRem(this.queue.processingQueueKey, 1, jobId);
 
     // remove the lock
     transaction.del(itemLockKey);
 
-    await transaction.exec();
+    // const transactionResult = await transaction.exec();
+
+    // const incrementResult = transactionResult[transactionResult.length - 4];
+    // const childCount = transactionResult[transactionResult.length - 3];
+
+    // if (incrementResult === childCount) {
+
+    // }
 
     return false;
   }

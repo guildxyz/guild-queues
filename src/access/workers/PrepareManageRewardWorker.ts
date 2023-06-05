@@ -3,7 +3,7 @@ import {
   ManageRewardParams,
   PrepareManageRewardJob,
   PrepareManageRewardResult,
-} from "./types";
+} from "../types";
 
 export default class PrepareManageRewardWorker extends ParentWorker<
   string,

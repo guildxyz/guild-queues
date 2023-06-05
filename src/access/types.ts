@@ -1,5 +1,10 @@
 import { RedisClientOptions } from "redis";
-import { ILogger, PrimaryResult } from "../base/types";
+import { AnyObject, ILogger, PrimaryResult } from "../base/types";
+import {
+  ParentResult,
+  BaseChildJobParams,
+  BaseChildJob,
+} from "../base/hierarchcal/types";
 
 // Aliases
 
@@ -29,7 +34,7 @@ export type AccessFlowOptions = {
   logger?: ILogger;
 };
 
-// Jobs and results
+// Jobs and results //
 
 export type AccessJob = {
   id: string;
@@ -39,11 +44,15 @@ export type AccessJob = {
 
 export type AccessResult = PrimaryResult<AccessQueueName>;
 
+// preparation
+
 export type PreparationJob = AccessJob & { recheckAccess: boolean };
 
 export type PreparationResult = AccessResult & {
   nextQueue: "access-check" | "update-membership";
 };
+
+// access-check
 
 export type AccessCheckJob = AccessJob & {
   updateMemberships: boolean;
@@ -61,6 +70,8 @@ export type AccessCheckResult = AccessResult & {
   }[];
 };
 
+// update-membership
+
 export type UpdateMembershipJob = AccessJob &
   AccessCheckResult & {
     guildId: number;
@@ -75,3 +86,36 @@ export type UpdateMembershipResult = AccessResult & {
     notMemberRoleIds: number[];
   };
 };
+
+// manage-reward
+
+export type ManageRewardBase = {
+  action: "ADD" | "REMOVE";
+  platformId: number;
+  platformUserId: string;
+  platformGuildId: string;
+  platformGuildData?: AnyObject;
+  platformOwnerData?: AnyObject;
+  platformRoles: {
+    platformRoleId: string;
+    platformRoleData?: AnyObject;
+  }[];
+};
+
+export type ManageRewardParams = BaseChildJobParams & ManageRewardBase;
+
+export type ManageRewardJob = BaseChildJob & ManageRewardBase;
+
+// prepare-manage-reward
+
+export type PrepareManageRewardJob = AccessJob &
+  UpdateMembershipResult & {
+    guildId: number;
+    forceRewardActions: boolean;
+    onlyForThisPlatform?: string;
+  };
+
+export type PrepareManageRewardResult = ParentResult<
+  string,
+  ManageRewardParams
+>;

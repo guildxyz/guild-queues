@@ -47,7 +47,7 @@ export default class Queue {
     const { queueName, nextQueueName, attributesToGet } = options;
 
     this.name = queueName;
-    this.attributesToGet = attributesToGet;
+    this.attributesToGet = attributesToGet || [];
 
     this.waitingQueueKey = `${Queue.keyPrefix}:${queueName}:waiting`;
     this.processingQueueKey = `${Queue.keyPrefix}:${queueName}:processing`;

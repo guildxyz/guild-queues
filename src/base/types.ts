@@ -40,7 +40,7 @@ export type WorkerFunction<Job extends BaseJob, Result> = (
 export type QueueOptions = {
   queueName: string;
   nextQueueName?: string;
-  attributesToGet: string[];
+  attributesToGet?: string[];
 };
 
 export type WorkerOptions<Job extends BaseJob, Result> = {
