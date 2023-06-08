@@ -1,30 +1,32 @@
 import { BaseJob, PrimaryResult } from "../types";
 
-// subQueueName:subJobId
-export type ChildKey = `${string}:${string}`;
-export type BaseChildJob = BaseJob & {
-  childId: string /*  */;
-  parentId: string;
-  subQueueName: string;
-};
+export type BaseChildQueueName = `${string}:${string}`;
 
-export type BaseChildJobParams = Omit<
-  BaseChildJob,
-  "id" | "parentId" | "childId"
->;
+export type BaseChildJob<ChildQueueName extends BaseChildQueueName> =
+  BaseJob & {
+    childId: string;
+    parentId: string;
+    childQueueName: ChildQueueName;
+  };
+
+export type BaseChildJobParams<ChildQueueName extends BaseChildQueueName> =
+  Omit<BaseChildJob<ChildQueueName>, "id" | "parentId" | "childId">;
 
 export type ParentResult<
   QueueName extends string,
-  ChildJobParams extends BaseChildJobParams
+  ChildQueueName extends BaseChildQueueName,
+  ChildJobParams extends BaseChildJobParams<ChildQueueName>
 > = PrimaryResult<QueueName> & {
   children: ChildJobParams[];
 };
 
+export type ResultChildKey = `child:job:${BaseChildQueueName}:${string}`;
 export type FormattedParentResult<
   QueueName extends string,
-  ChildJobParam extends BaseChildJobParams
-> = ParentResult<QueueName, ChildJobParam> & {
-  [key: ChildKey]: any;
+  ChildQueueName extends BaseChildQueueName,
+  ChildJobParam extends BaseChildJobParams<ChildQueueName>
+> = ParentResult<QueueName, ChildQueueName, ChildJobParam> & {
+  [key: ResultChildKey]: any;
   childCount?: number;
   childDoneCount?: 0;
 };

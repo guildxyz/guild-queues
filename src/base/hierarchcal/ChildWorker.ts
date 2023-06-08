@@ -1,10 +1,10 @@
-import { BaseChildJob } from "./types";
+import { BaseChildJob, BaseChildQueueName } from "./types";
 import Worker from "../Worker";
 import Queue from "../Queue";
 
 export default class ChildWorker<
-  ChildQueueName extends string,
-  Job extends BaseChildJob,
+  ChildQueueName extends BaseChildQueueName,
+  Job extends BaseChildJob<ChildQueueName>,
   Result
 > extends Worker<ChildQueueName, Job, Result> {
   protected override async lease(timeout: number): Promise<Job> {

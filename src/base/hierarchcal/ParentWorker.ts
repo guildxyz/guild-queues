@@ -4,15 +4,17 @@ import PrimaryWorker from "../primary/PrimaryWorker";
 import { BaseJob } from "../types";
 import {
   BaseChildJobParams,
+  BaseChildQueueName,
   FormattedParentResult,
   ParentResult,
 } from "./types";
 
 export default class ParentWorker<
   QueueName extends string,
+  ChildQueueName extends BaseChildQueueName,
   Job extends BaseJob,
-  ChildJobParam extends BaseChildJobParams,
-  Result extends ParentResult<QueueName, ChildJobParam>
+  ChildJobParam extends BaseChildJobParams<ChildQueueName>,
+  Result extends ParentResult<QueueName, ChildQueueName, ChildJobParam>
 > extends PrimaryWorker<QueueName, Job, Result> {
   protected override async complete(
     flowId: string,
@@ -20,18 +22,24 @@ export default class ParentWorker<
   ): Promise<boolean> {
     const transaction = this.nonBlockingRedis.multi();
 
-    const newResult: FormattedParentResult<QueueName, ChildJobParam> = result;
+    const newResult: FormattedParentResult<
+      QueueName,
+      ChildQueueName,
+      ChildJobParam
+    > = result;
     result.children.forEach((childJob) => {
       const parentId = flowId;
       const childId = uuidV4();
       const childJobId = `${parentId}:${childId}`;
-      newResult[`child:job:${childJob.subQueueName}:${childId}`] = {
+      newResult[
+        `child:job:${childJob.childQueueName as BaseChildQueueName}:${childId}`
+      ] = {
         ...childJob,
         parentId,
         id: childJobId,
       };
       transaction.rPush(
-        `${Queue.keyPrefix}:${childJob.subQueueName}:waiting`,
+        `${Queue.keyPrefix}:${childJob.childQueueName}:waiting`,
         childJobId
       );
 

@@ -17,6 +17,7 @@ import ChildWorker from "./hierarchcal/ChildWorker";
 import {
   BaseChildJob,
   BaseChildJobParams,
+  BaseChildQueueName,
   ParentResult,
 } from "./hierarchcal/types";
 import { objectToStringEntries, parseObject } from "../utils";
@@ -24,7 +25,7 @@ import ParentWorker from "./hierarchcal/ParentWorker";
 
 export default class Flow<
   QueueName extends string,
-  ChildQueueName extends string,
+  ChildQueueName extends BaseChildQueueName,
   FlowJob extends BaseJob,
   FlowResult extends PrimaryResult<QueueName>,
   CreateFlowOptions extends AnyObject
@@ -195,17 +196,23 @@ export default class Flow<
 
   public createParentWorker = <
     Job extends FlowJob,
-    ChildJobParam extends BaseChildJobParams,
-    Result extends ParentResult<QueueName, ChildJobParam>
+    ChildJobParam extends BaseChildJobParams<ChildQueueName>,
+    Result extends ParentResult<QueueName, ChildQueueName, ChildJobParam>
   >(
     queueName: QueueName,
     workerFunction: WorkerFunction<Job, Result>,
     lockTime?: number,
     waitTimeout?: number
-  ): ParentWorker<QueueName, Job, ChildJobParam, Result> => {
+  ): ParentWorker<QueueName, ChildQueueName, Job, ChildJobParam, Result> => {
     const queue = this.queues.find((q) => q.name === queueName);
 
-    const worker = new ParentWorker<QueueName, Job, ChildJobParam, Result>({
+    const worker = new ParentWorker<
+      QueueName,
+      ChildQueueName,
+      Job,
+      ChildJobParam,
+      Result
+    >({
       flowPrefix: this.prefix,
       workerFunction,
       queue,
@@ -220,7 +227,10 @@ export default class Flow<
     return worker;
   };
 
-  public createChildWorker = <ChildJob extends BaseChildJob, ChildResult>(
+  public createChildWorker = <
+    ChildJob extends BaseChildJob<ChildQueueName>,
+    ChildResult
+  >(
     childQueueName: ChildQueueName,
     workerFunction: WorkerFunction<ChildJob, ChildResult>,
     lockTime?: number,

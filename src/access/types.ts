@@ -102,15 +102,17 @@ export type ManageRewardBase = {
   }[];
 };
 
-export type ManageRewardParams = BaseChildJobParams & ManageRewardBase;
+export type ManageRewardQueueName = `manage-reward:${string}`;
 
-export type ManageRewardJob = BaseChildJob & ManageRewardBase;
+export type ManageRewardParams = BaseChildJobParams<ManageRewardQueueName> &
+  ManageRewardBase;
+
+export type ManageRewardJob = BaseChildJob<ManageRewardQueueName> &
+  ManageRewardBase;
 
 export type ManageRewardResult = {
   success: boolean;
 };
-
-export type ManageRewardQueueName = `manage-reward:${string}`;
 
 // prepare-manage-reward
 
@@ -123,5 +125,6 @@ export type PrepareManageRewardJob = AccessJob &
 
 export type PrepareManageRewardResult = ParentResult<
   AccessQueueName,
+  ManageRewardQueueName,
   ManageRewardParams
 >;
