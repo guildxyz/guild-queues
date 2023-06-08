@@ -8,18 +8,27 @@ import {
   ILogger,
   RedisClient,
   WorkerOptions,
+  IConnectable,
+  IStartable,
 } from "./types";
 
-export default abstract class Worker<Job extends BaseJob, Result> {
+export default abstract class Worker<
+  QueueName extends string,
+  Job extends BaseJob,
+  Result
+> implements IConnectable, IStartable
+{
   /**
    * Uuid of the worker
    */
   readonly id: string;
 
+  readonly flowPrefix: string;
+
   /**
    * The queue to work on
    */
-  readonly queue: Queue;
+  readonly queue: Queue<QueueName>;
 
   /**
    * The job processing function definition
@@ -65,7 +74,7 @@ export default abstract class Worker<Job extends BaseJob, Result> {
    * Set the properties, generate workerId, initialize redis clients
    * @param options
    */
-  constructor(options: WorkerOptions<Job, Result>) {
+  constructor(options: WorkerOptions<QueueName, Job, Result>) {
     const defaultValues = {
       lockTime: 60 * 3,
       waitingTimeout: 0,
@@ -73,6 +82,7 @@ export default abstract class Worker<Job extends BaseJob, Result> {
 
     const {
       queue,
+      flowPrefix,
       workerFunction,
       logger,
       redisClientOptions,
@@ -81,6 +91,7 @@ export default abstract class Worker<Job extends BaseJob, Result> {
     } = { ...defaultValues, ...options };
 
     this.queue = queue;
+    this.flowPrefix = flowPrefix;
     this.logger = logger;
     this.lockTime = lockTime;
     this.waitingTimeout = waitingTimeout;

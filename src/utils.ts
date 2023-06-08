@@ -32,6 +32,8 @@ const keyTypeMap = new Map<string, KeyType>([
   ["status", "string"],
   ["accessCheckResult", "object"],
   ["updateMembershipResult", "object"],
+  ["childCount", "number"],
+  ["childDoneCount", "number"],
 ]);
 
 export const parse = (keyName: string, value: string) => {
@@ -46,7 +48,11 @@ export const parse = (keyName: string, value: string) => {
     case "object":
       return JSON.parse(value);
     case "string":
+      return value;
     default:
+      if (value.startsWith("{")) {
+        return JSON.parse(value);
+      }
       return value;
   }
 };

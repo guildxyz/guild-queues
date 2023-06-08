@@ -2,6 +2,7 @@
 import { hGetMore, hSetMore } from "../../utils";
 import Worker from "../Worker";
 import { AnyObject, BaseJob, PrimaryResult } from "../types";
+import Queue from "../Queue";
 
 /**
  * Defines a worker, the framework for job execution
@@ -10,7 +11,7 @@ export default class PrimaryWorker<
   QueueName extends string,
   Job extends BaseJob,
   Result extends PrimaryResult<QueueName>
-> extends Worker<Job, Result> {
+> extends Worker<QueueName, Job, Result> {
   /**
    * Lock a job for execution and return it
    * @param timeout maximum number of seconds to block (zero means block indefinitely)
@@ -33,12 +34,19 @@ export default class PrimaryWorker<
     });
 
     // get the flow's state attributes
-    const flowKey = `flow:${jobId}`;
+    const flowKey = `${this.flowPrefix}:${jobId}`;
     const attributes = await hGetMore(
       this.nonBlockingRedis,
       flowKey,
       this.queue.attributesToGet
     );
+
+    this.logger?.info("Primary worker leased job", {
+      queueName: this.queue.name,
+      flowPredix: this.flowPrefix,
+      workerId: this.id,
+      jobId,
+    });
 
     // return job with flowId
     return { id: jobId, ...attributes } as Job;
@@ -51,7 +59,7 @@ export default class PrimaryWorker<
    * @returns whether it was successful
    */
   protected async complete(jobId: string, result?: Result): Promise<boolean> {
-    const flowKey = `flow:${jobId}`;
+    const flowKey = `${this.flowPrefix}:${jobId}`;
     const { nextQueue } = result;
 
     const propertiesToSave: AnyObject = result;
@@ -63,7 +71,7 @@ export default class PrimaryWorker<
 
     const itemLockKey = `${this.queue.lockPrefixKey}:${jobId}`;
     const nextQueueKey = nextQueue
-      ? `queue:${nextQueue}:waiting`
+      ? `${Queue.keyPrefix}:${nextQueue}:waiting`
       : this.queue.nextQueueKey;
 
     // start a redis transaction
@@ -81,7 +89,12 @@ export default class PrimaryWorker<
 
     // check if the job was remove successfully from the current queue
     if (+removedItemCount > 0) {
-      this.logger?.debug("complete succeed", { removedLockCount });
+      this.logger?.info("PrimaryWorker completed a job", {
+        queueName: this.queue.name,
+        flowPredix: this.flowPrefix,
+        workerId: this.id,
+        removedLockCount,
+      });
       return true;
     }
 

@@ -13,7 +13,7 @@ export type AccessQueueName =
   | "access-check"
   | "update-membership"
   | "prepare-manage-reward"
-  | "response";
+  | "access-result";
 
 // Options
 
@@ -106,6 +106,12 @@ export type ManageRewardParams = BaseChildJobParams & ManageRewardBase;
 
 export type ManageRewardJob = BaseChildJob & ManageRewardBase;
 
+export type ManageRewardResult = {
+  success: boolean;
+};
+
+export type ManageRewardQueueName = `manage-reward:${string}`;
+
 // prepare-manage-reward
 
 export type PrepareManageRewardJob = AccessJob &
@@ -116,6 +122,6 @@ export type PrepareManageRewardJob = AccessJob &
   };
 
 export type PrepareManageRewardResult = ParentResult<
-  string,
+  AccessQueueName,
   ManageRewardParams
 >;

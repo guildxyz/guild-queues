@@ -1,10 +1,12 @@
 import { BaseChildJob } from "./types";
 import Worker from "../Worker";
+import Queue from "../Queue";
 
 export default class ChildWorker<
+  ChildQueueName extends string,
   Job extends BaseChildJob,
   Result
-> extends Worker<Job, Result> {
+> extends Worker<ChildQueueName, Job, Result> {
   protected override async lease(timeout: number): Promise<Job> {
     const jobId: string = await this.blockingRedis.blMove(
       this.queue.waitingQueueKey,
@@ -15,7 +17,7 @@ export default class ChildWorker<
     );
 
     const [parentId, childId] = jobId.split(":");
-    const childKey = `child:${this.queue.name}:${childId}`;
+    const childKey = `child:job:${this.queue.name}:${childId}`;
 
     // set a lock for the job with expiration
     const itemLockKey = `${this.queue.lockPrefixKey}:${jobId}`;
@@ -24,13 +26,21 @@ export default class ChildWorker<
     });
 
     // get the flow's state attributes
-    const flowKey = `flow:${parentId}`;
+    const flowKey = `${this.flowPrefix}:${parentId}`;
     const childJobString = await this.nonBlockingRedis.hGet(flowKey, childKey);
     if (!childJobString) {
-      this.logger?.warn("Child property not found", { flowKey, childKey });
-      throw new Error(`Child property not found (${flowKey},${childKey})`);
+      const errorMessage = "Child property not found";
+      this.logger?.warn(errorMessage, { flowKey, childKey });
+      throw new Error(`${errorMessage} (${flowKey},${childKey})`);
     }
     const childJob = JSON.parse(childJobString);
+
+    this.logger?.info("ChildWorker leased job", {
+      queueName: this.queue.name,
+      flowPredix: this.flowPrefix,
+      workerId: this.id,
+      jobId,
+    });
 
     // return job with flowId
     return { parentId, childId, ...childJob };
@@ -38,8 +48,8 @@ export default class ChildWorker<
 
   protected async complete(jobId: string, result?: Result): Promise<boolean> {
     const [parentId, childId] = jobId.split(":");
-    const flowKey = `flow:${parentId}`;
-    const childKey = `child:${this.queue.name}:${childId}`;
+    const flowKey = `${this.flowPrefix}:${parentId}`;
+    const childResultKey = `child:result:${this.queue.name}:${childId}`;
     const itemLockKey = `${this.queue.lockPrefixKey}:${jobId}`;
 
     // start a redis transaction
@@ -47,7 +57,7 @@ export default class ChildWorker<
 
     // save result
     if (result) {
-      transaction.hSet(flowKey, childKey, JSON.stringify(result));
+      transaction.hSet(flowKey, childResultKey, JSON.stringify(result));
     }
 
     // increment childDoneCount by 1
@@ -62,15 +72,33 @@ export default class ChildWorker<
     // remove the lock
     transaction.del(itemLockKey);
 
-    // const transactionResult = await transaction.exec();
+    const transactionResult = await transaction.exec();
 
-    // const incrementResult = transactionResult[transactionResult.length - 4];
-    // const childCount = transactionResult[transactionResult.length - 3];
+    this.logger?.info("ChildWorker completed a job", {
+      queueName: this.queue.name,
+      flowPredix: this.flowPrefix,
+      workerId: this.id,
+      jobId,
+      transactionResult,
+    });
 
-    // if (incrementResult === childCount) {
+    const incrementResult = transactionResult[transactionResult.length - 4];
+    const childCount = transactionResult[transactionResult.length - 3];
 
-    // }
+    if (incrementResult === +childCount) {
+      const nextQueue = await this.nonBlockingRedis.hGet(flowKey, "nextQueue");
+      if (nextQueue) {
+        const nextQueueKey = `${Queue.keyPrefix}:${nextQueue}:waiting`;
+        await this.nonBlockingRedis.rPush(nextQueueKey, parentId);
+      }
 
+      const childJobGroupName = this.queue.name.split(":")[0];
+      await this.nonBlockingRedis.hSet(
+        flowKey,
+        "status",
+        `${childJobGroupName} done`
+      );
+    }
     return false;
   }
 }

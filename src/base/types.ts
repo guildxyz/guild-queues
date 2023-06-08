@@ -15,6 +15,16 @@ export interface ILogger {
   verbose: ILogMethod;
 }
 
+export interface IConnectable {
+  connect(): void;
+  disconnect(): void;
+}
+
+export interface IStartable {
+  start(): void;
+  stop(): void;
+}
+
 // ALiases
 
 export type RedisClient = ReturnType<typeof createClient>;
@@ -37,17 +47,31 @@ export type WorkerFunction<Job extends BaseJob, Result> = (
 
 // Options
 
-export type QueueOptions = {
-  queueName: string;
-  nextQueueName?: string;
+export type QueueOptions<QueueName extends string> = {
+  queueName: QueueName;
+  nextQueueName?: QueueName;
   attributesToGet?: string[];
 };
 
-export type WorkerOptions<Job extends BaseJob, Result> = {
-  queue: Queue;
+export type WorkerOptions<
+  QueueName extends string,
+  Job extends BaseJob,
+  Result
+> = {
+  queue: Queue<QueueName>;
+  flowPrefix: string;
   workerFunction: WorkerFunction<Job, Result>;
   logger?: ILogger;
   lockTime?: number;
   waitTimeout?: number;
   redisClientOptions: RedisClientOptions;
+};
+
+export type FlowOptions<QueueName extends string, ChildQueueName> = {
+  prefix: string;
+  redisClientOptions: RedisClientOptions;
+  logger?: ILogger;
+  queueOptions: QueueOptions<QueueName>[];
+  childQueueNames: ChildQueueName[];
+  lookupAttributes: string[];
 };

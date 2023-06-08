@@ -26,4 +26,5 @@ export type FormattedParentResult<
 > = ParentResult<QueueName, ChildJobParam> & {
   [key: ChildKey]: any;
   childCount?: number;
+  childDoneCount?: 0;
 };

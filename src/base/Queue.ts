@@ -3,7 +3,7 @@ import { QueueOptions } from "./types";
 /**
  * Stores a queue's properties
  */
-export default class Queue {
+export default class Queue<QueueName extends string> {
   /**
    * Prefix of the queue keys
    */
@@ -12,7 +12,7 @@ export default class Queue {
   /**
    * Name of the queue
    */
-  readonly name: string;
+  readonly name: QueueName;
 
   /**
    * Name of the queue where to put the result
@@ -43,7 +43,7 @@ export default class Queue {
    * Sets the properties
    * @param options parameters of the queue
    */
-  constructor(options: QueueOptions) {
+  constructor(options: QueueOptions<QueueName>) {
     const { queueName, nextQueueName, attributesToGet } = options;
 
     this.name = queueName;
