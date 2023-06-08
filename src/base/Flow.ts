@@ -131,8 +131,10 @@ export default class Flow<
     // add lookup keys
     this.lookupAttributes.forEach((la) => {
       if (typeof options[la] === "string" || typeof options[la] === "number") {
+        // if attribute is primitive add one key
         transaction.rPush(`${this.prefix}:${la}:${options[la]}`, flowId);
       } else if (options[la] instanceof Array) {
+        // if it's an array, add one for each element
         options[la].forEach((iterator: any) => {
           transaction.rPush(`${this.prefix}:${la}:${iterator}`, flowId);
         });

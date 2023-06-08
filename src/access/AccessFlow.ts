@@ -20,9 +20,12 @@ export default class AccessFlow extends Flow<
   CreateAccessFlowOptions
 > {
   constructor(options: AccessFlowOptions) {
+    // most of the access flow jobs need the userId and roleId
     const defaultAttributesToGet = ["userId", "roleIds"];
+    // we want to fetch the access flow states by userId, roleId, guildId
     const lookupAttributes = ["userId", "roleIds", "guildId"];
 
+    // queues of the AccessFlow
     const queueOptions: QueueOptions<AccessQueueName>[] = [
       {
         queueName: "preparation",
@@ -49,6 +52,7 @@ export default class AccessFlow extends Flow<
           "forceRewardActions",
           "onlyForThisPlatform",
         ],
+        nextQueueName: "access-result",
       },
       {
         queueName: "access-result",

@@ -1,4 +1,12 @@
-import { BaseChildJob, BaseChildQueueName } from "./types";
+import {
+  BaseChildJob,
+  BaseChildQueueName,
+  ChildGroupAllCountKey,
+  ChildGroupDoneCountKey,
+  ChildGroupNextQueueKey,
+  ChildJobKey,
+  ChildResultKey,
+} from "./types";
 import Worker from "../Worker";
 import Queue from "../Queue";
 
@@ -25,7 +33,7 @@ export default class ChildWorker<
     );
 
     const [parentId, childId] = jobId.split(":");
-    const childKey = `child:job:${this.queue.name}:${childId}`;
+    const childKey: ChildJobKey<ChildQueueName> = `child:${this.queue.name}:job:${childId}`;
 
     // set a lock for the job with expiration
     const itemLockKey = `${this.queue.lockPrefixKey}:${jobId}`;
@@ -62,9 +70,16 @@ export default class ChildWorker<
    */
   protected async complete(jobId: string, result?: Result): Promise<boolean> {
     const [parentId, childId] = jobId.split(":");
+
     const flowKey = `${this.flowPrefix}:${parentId}`;
-    const childResultKey = `child:result:${this.queue.name}:${childId}`;
     const itemLockKey = `${this.queue.lockPrefixKey}:${jobId}`;
+
+    const childJobGroupName = this.queue.name.split(":")[0];
+
+    const childResultKey: ChildResultKey<ChildQueueName> = `child:${this.queue.name}:result:${childId}`;
+    const childJobDoneCountKey: ChildGroupDoneCountKey = `child-group:${childJobGroupName}:count:done`;
+    const childJobAllCountKey: ChildGroupAllCountKey = `child-group:${childJobGroupName}:count:all`;
+    const childJobNextQueueKey: ChildGroupNextQueueKey = `child-group:${childJobGroupName}:next-queue`;
 
     // start a redis transaction
     const transaction = this.nonBlockingRedis.multi();
@@ -74,11 +89,14 @@ export default class ChildWorker<
       transaction.hSet(flowKey, childResultKey, JSON.stringify(result));
     }
 
-    // increment childDoneCount by 1
-    transaction.hIncrBy(flowKey, "childDoneCount", 1);
+    // increment child group done count by 1
+    transaction.hIncrBy(flowKey, childJobDoneCountKey, 1);
 
-    // get the child count
-    transaction.hGet(flowKey, "childCount");
+    // get the child group count
+    transaction.hGet(flowKey, childJobAllCountKey);
+
+    // get the next queue
+    transaction.hGet(flowKey, childJobNextQueueKey);
 
     // remove job from the current queue
     transaction.lRem(this.queue.processingQueueKey, 1, jobId);
@@ -86,6 +104,7 @@ export default class ChildWorker<
     // remove the lock
     transaction.del(itemLockKey);
 
+    // execute the transaction
     const transactionResult = await transaction.exec();
 
     this.logger?.info("ChildWorker completed a job", {
@@ -96,17 +115,20 @@ export default class ChildWorker<
       transactionResult,
     });
 
-    const incrementResult = transactionResult[transactionResult.length - 4];
-    const childCount = transactionResult[transactionResult.length - 3];
+    // get the results (I count from the end because the first HSET is optional)
+    const incrementResult = transactionResult[transactionResult.length - 5];
+    const childCount = transactionResult[transactionResult.length - 4];
+    const nextQueue = transactionResult[transactionResult.length - 3];
 
+    // check if it was the last job in the child group
     if (incrementResult === +childCount) {
-      const nextQueue = await this.nonBlockingRedis.hGet(flowKey, "nextQueue");
+      // if yes and there's a next queue, put the job to the next queue
       if (nextQueue) {
         const nextQueueKey = `${Queue.keyPrefix}:${nextQueue}:waiting`;
         await this.nonBlockingRedis.rPush(nextQueueKey, parentId);
       }
 
-      const childJobGroupName = this.queue.name.split(":")[0];
+      // and mark the child-group done
       await this.nonBlockingRedis.hSet(
         flowKey,
         "status",

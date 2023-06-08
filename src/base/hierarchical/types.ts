@@ -1,7 +1,7 @@
 import { BaseJob, PrimaryResult } from "../types";
 
 /**
- * Name of a child queue
+ * Name of a child queue (<child job group>:<child job identifier>, e.g.: manage-reward:discord)
  */
 export type BaseChildQueueName = `${string}:${string}`;
 
@@ -42,9 +42,27 @@ export type ParentResult<
 };
 
 /**
- * Key for the state which represents a child job
+ * Key for the state which represents a child job (the last string represents the child job's uuid)
  */
-export type ResultChildKey = `child:job:${BaseChildQueueName}:${string}`;
+export type ChildJobKey<ChildQueueName extends BaseChildQueueName> =
+  `child:${ChildQueueName}:job:${string}`;
+/**
+ * Key for the state which represents a child job's result (the last string represents the child job's uuid)
+ */
+export type ChildResultKey<ChildQueueName extends BaseChildQueueName> =
+  `child:${ChildQueueName}:result:${string}`;
+/**
+ * Count of the child jobs of a child job group (the middle string represents the child job group)
+ */
+export type ChildGroupAllCountKey = `child-group:${string}:count:all`;
+/**
+ * Count of the completed child jobs of a child job group (the middle string represents the child job group)
+ */
+export type ChildGroupDoneCountKey = `child-group:${string}:count:done`;
+/**
+ * Next primary queue to continue with after a child job group is finished (the middle string represents the child job group)
+ */
+export type ChildGroupNextQueueKey = `child-group:${string}:next-queue`;
 
 /**
  * Processed, extended result of a parent worker
@@ -57,13 +75,17 @@ export type FormattedParentResult<
   /**
    * Key for the state which represents a child job
    */
-  [key: ResultChildKey]: any;
+  [key: ChildJobKey<BaseChildQueueName>]: any;
   /**
-   * Count of the child jobs
+   * Count of the child jobs of a child job group
    */
-  childCount?: number;
+  [key: ChildGroupAllCountKey]: number;
   /**
-   * Count of the completed child jobs
+   * Count of the completed child jobs of a child job group
    */
-  childDoneCount?: 0;
+  [key: ChildGroupDoneCountKey]: 0;
+  /**
+   * Next primary queue to continue with after a child job group is finished
+   */
+  [key: ChildGroupNextQueueKey]: QueueName;
 };
