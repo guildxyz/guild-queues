@@ -5,7 +5,7 @@ import { AnyObject, BaseJob, PrimaryResult } from "../types";
 import Queue from "../Queue";
 
 /**
- * Defines a worker, the framework for job execution
+ * Worker for the flow's main queues
  */
 export default class PrimaryWorker<
   QueueName extends string,

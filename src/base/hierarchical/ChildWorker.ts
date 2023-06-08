@@ -2,11 +2,19 @@ import { BaseChildJob, BaseChildQueueName } from "./types";
 import Worker from "../Worker";
 import Queue from "../Queue";
 
+/**
+ * Worker for child jobs
+ */
 export default class ChildWorker<
   ChildQueueName extends BaseChildQueueName,
   Job extends BaseChildJob<ChildQueueName>,
   Result
 > extends Worker<ChildQueueName, Job, Result> {
+  /**
+   * Fetches a child job from the parent's hash, locks is for execution, and returns it
+   * @param timeout maximum number of seconds to block (zero means block indefinitely)
+   * @returns the child job
+   */
   protected override async lease(timeout: number): Promise<Job> {
     const jobId: string = await this.blockingRedis.blMove(
       this.queue.waitingQueueKey,
@@ -46,6 +54,12 @@ export default class ChildWorker<
     return { parentId, childId, ...childJob };
   }
 
+  /**
+   * Saves a child job's result to the parent's hash and increments the child job counter
+   * @param jobId the job's id
+   * @param result the result of the job
+   * @returns whether it was successful
+   */
   protected async complete(jobId: string, result?: Result): Promise<boolean> {
     const [parentId, childId] = jobId.split(":");
     const flowKey = `${this.flowPrefix}:${parentId}`;

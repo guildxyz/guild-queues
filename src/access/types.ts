@@ -4,10 +4,11 @@ import {
   ParentResult,
   BaseChildJobParams,
   BaseChildJob,
-} from "../base/hierarchcal/types";
+} from "../base/hierarchical/types";
 
-// Aliases
-
+/**
+ * Names of the queues in the access flow
+ */
 export type AccessQueueName =
   | "preparation"
   | "access-check"
@@ -15,8 +16,9 @@ export type AccessQueueName =
   | "prepare-manage-reward"
   | "access-result";
 
-// Options
-
+/**
+ * Options to create flows in the AccessFlow
+ */
 export type CreateAccessFlowOptions = {
   userId: number;
   roleIds: number[];
@@ -29,35 +31,50 @@ export type CreateAccessFlowOptions = {
   onlyForThisPlatform?: string;
 };
 
+/**
+ * Options to create an AccessFlow instance
+ */
 export type AccessFlowOptions = {
   redisClientOptions: RedisClientOptions;
   logger?: ILogger;
 };
 
-// Jobs and results //
-
+/**
+ * A basic job of the access flow
+ */
 export type AccessJob = {
   id: string;
   userId: number;
   roleIds: number[];
 };
 
+/**
+ * A basic result of the access flow
+ */
 export type AccessResult = PrimaryResult<AccessQueueName>;
 
-// preparation
-
+/**
+ * Job of the preparation queue
+ */
 export type PreparationJob = AccessJob & { recheckAccess: boolean };
 
+/**
+ * Result of the preparation queue
+ */
 export type PreparationResult = AccessResult & {
   nextQueue: "access-check" | "update-membership";
 };
 
-// access-check
-
+/**
+ * Job of the access-check queue
+ */
 export type AccessCheckJob = AccessJob & {
   updateMemberships: boolean;
 };
 
+/**
+ * Result of the access-check queue
+ */
 export type AccessCheckResult = AccessResult & {
   accessCheckResult: {
     roleId: number;
@@ -70,14 +87,18 @@ export type AccessCheckResult = AccessResult & {
   }[];
 };
 
-// update-membership
-
+/**
+ * Job of the update-membership queue
+ */
 export type UpdateMembershipJob = AccessJob &
   AccessCheckResult & {
     guildId: number;
     manageRewards: boolean;
   };
 
+/**
+ * Result of the update-membership queue
+ */
 export type UpdateMembershipResult = AccessResult & {
   updateMembershipResult: {
     newMembershipRoleIds: number[];
@@ -87,8 +108,9 @@ export type UpdateMembershipResult = AccessResult & {
   };
 };
 
-// manage-reward
-
+/**
+ * Basic properties of a manage reward action
+ */
 export type ManageRewardBase = {
   action: "ADD" | "REMOVE";
   platformId: number;
@@ -102,20 +124,34 @@ export type ManageRewardBase = {
   }[];
 };
 
+/**
+ * Name of a manage-reward child queue
+ */
 export type ManageRewardQueueName = `manage-reward:${string}`;
 
+/**
+ * Params to create a manage-reward child job
+ */
 export type ManageRewardParams = BaseChildJobParams<ManageRewardQueueName> &
   ManageRewardBase;
 
+/**
+ * Manage reward child job
+ */
 export type ManageRewardJob = BaseChildJob<ManageRewardQueueName> &
   ManageRewardBase;
 
+/**
+ * Manage reward child result
+ */
 export type ManageRewardResult = {
   success: boolean;
+  errorMsg?: string;
 };
 
-// prepare-manage-reward
-
+/**
+ * Job of the prepare-manage-reward queue
+ */
 export type PrepareManageRewardJob = AccessJob &
   UpdateMembershipResult & {
     guildId: number;
@@ -123,6 +159,9 @@ export type PrepareManageRewardJob = AccessJob &
     onlyForThisPlatform?: string;
   };
 
+/**
+ * Result of the prepare-manage-reward queue
+ */
 export type PrepareManageRewardResult = ParentResult<
   AccessQueueName,
   ManageRewardQueueName,

@@ -13,16 +13,19 @@ import {
   IStartable,
 } from "./types";
 import PrimaryWorker from "./primary/PrimaryWorker";
-import ChildWorker from "./hierarchcal/ChildWorker";
+import ChildWorker from "./hierarchical/ChildWorker";
 import {
   BaseChildJob,
   BaseChildJobParams,
   BaseChildQueueName,
   ParentResult,
-} from "./hierarchcal/types";
+} from "./hierarchical/types";
 import { objectToStringEntries, parseObject } from "../utils";
-import ParentWorker from "./hierarchcal/ParentWorker";
+import ParentWorker from "./hierarchical/ParentWorker";
 
+/**
+ * Defines a sequence of Jobs / Queues / Workers
+ */
 export default class Flow<
   QueueName extends string,
   ChildQueueName extends BaseChildQueueName,
@@ -40,12 +43,24 @@ export default class Flow<
    */
   private readonly logger: ILogger;
 
+  /**
+   * Attributes which can be used for lookup a state
+   */
   private readonly lookupAttributes: string[];
 
+  /**
+   * Queues of the Flow
+   */
   private readonly queues: Queue<QueueName>[];
 
+  /**
+   * Child queues of the Flow
+   */
   private readonly childQueues: Queue<ChildQueueName>[];
 
+  /**
+   * Workers of the Flow
+   */
   private workers: (IConnectable & IStartable)[] = [];
 
   /**

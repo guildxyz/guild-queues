@@ -9,6 +9,9 @@ import {
   ManageRewardQueueName,
 } from "./types";
 
+/**
+ * Defines the access flow (check-access + update-memberships + manage-rewards)
+ */
 export default class AccessFlow extends Flow<
   AccessQueueName,
   ManageRewardQueueName,

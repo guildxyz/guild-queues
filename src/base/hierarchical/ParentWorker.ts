@@ -9,6 +9,9 @@ import {
   ParentResult,
 } from "./types";
 
+/**
+ * Modified PrimaryWorker which creates child jobs instead of passing a job to a next queue
+ */
 export default class ParentWorker<
   QueueName extends string,
   ChildQueueName extends BaseChildQueueName,
@@ -16,6 +19,9 @@ export default class ParentWorker<
   ChildJobParam extends BaseChildJobParams<ChildQueueName>,
   Result extends ParentResult<QueueName, ChildQueueName, ChildJobParam>
 > extends PrimaryWorker<QueueName, Job, Result> {
+  /**
+   * Create child jobs then call ParentWorker.complete()
+   */
   protected override async complete(
     flowId: string,
     result?: Result
@@ -31,9 +37,7 @@ export default class ParentWorker<
       const parentId = flowId;
       const childId = uuidV4();
       const childJobId = `${parentId}:${childId}`;
-      newResult[
-        `child:job:${childJob.childQueueName as BaseChildQueueName}:${childId}`
-      ] = {
+      newResult[`child:job:${childJob.childQueueName}:${childId}`] = {
         ...childJob,
         parentId,
         id: childJobId,

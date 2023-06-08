@@ -12,6 +12,9 @@ import {
   IStartable,
 } from "./types";
 
+/**
+ * Defines a worker, the framework for job execution
+ */
 export default abstract class Worker<
   QueueName extends string,
   Job extends BaseJob,
@@ -23,6 +26,9 @@ export default abstract class Worker<
    */
   readonly id: string;
 
+  /**
+   * Prefix of the flow this worker belongs to
+   */
   readonly flowPrefix: string;
 
   /**
@@ -102,8 +108,19 @@ export default abstract class Worker<
     this.status = "ready";
   }
 
+  /**
+   * Should lock a job for execution and return it
+   * @param timeout maximum number of seconds to block (zero means block indefinitely)
+   * @returns the job
+   */
   protected abstract lease(timeout: number): Promise<Job>;
 
+  /**
+   * Should updates the flow's status, removed the specified job from the queue and adds it to the next one
+   * @param jobId the job's id
+   * @param result the result of the job
+   * @returns whether it was successful
+   */
   protected abstract complete(jobId: string, result?: Result): Promise<boolean>;
 
   /**
