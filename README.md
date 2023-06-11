@@ -11,6 +11,8 @@ npm install @guildxyz/queues
 ## Example usage
 
 ```typescript
+import { AccessFlow } from "@guildxyz/queues";
+
 // create the flow instance
 const accessFlow = new AccessFlow({
   redisClientOptions: { url: config.redisHost },
