@@ -11,6 +11,7 @@ import {
   IConnectable,
   IStartable,
 } from "./types";
+import { hSetMore } from "../utils";
 
 /**
  * Defines a worker, the framework for job execution
@@ -24,22 +25,22 @@ export default abstract class Worker<
   /**
    * Uuid of the worker
    */
-  readonly id: string;
+  public readonly id: string;
 
   /**
    * Prefix of the flow this worker belongs to
    */
-  readonly flowPrefix: string;
+  public readonly flowPrefix: string;
 
   /**
    * The queue to work on
    */
-  readonly queue: Queue<QueueName>;
+  public readonly queue: Queue<QueueName>;
 
   /**
    * The job processing function definition
    */
-  readonly workerFunction: WorkerFunction<Job, Result>;
+  protected readonly workerFunction: WorkerFunction<Job, Result>;
 
   /**
    * Provided logger (no logs if null)
@@ -64,17 +65,17 @@ export default abstract class Worker<
   /**
    * Expiration time of lock keys
    */
-  lockTime: number;
+  public lockTime: number;
 
   /**
    * Maximum number of seconds to wait for job before checking status
    */
-  waitingTimeout: number;
+  public waitingTimeout: number;
 
   /**
    * Status of the worker
    */
-  status: "ready" | "running" | "stopping" | "stopped";
+  public status: "ready" | "running" | "stopping" | "stopped";
 
   /**
    * Set the properties, generate workerId, initialize redis clients
@@ -147,6 +148,7 @@ export default abstract class Worker<
   public start = async () => {
     this.logger?.info("Starting worker", {
       queueName: this.queue.name,
+      flowPredix: this.flowPrefix,
       workerId: this.id,
     });
 
@@ -155,19 +157,71 @@ export default abstract class Worker<
 
     // start a loop for job execution
     this.scheduler = (async () => {
-      while (this.status === "running") {
-        const job = await this.lease(this.waitingTimeout);
+      try {
+        while (this.status === "running") {
+          const job = await this.lease(this.waitingTimeout);
 
-        // if there's a job execute it
-        if (job) {
-          const result = await this.workerFunction(job);
-          await this.complete(job.id, result);
+          // if there's a job execute it
+          if (job) {
+            let result: Result;
+            try {
+              result = await this.workerFunction(job);
+            } catch (workerFunctionError: any) {
+              await this.handleWorkerFunctionError(job.id, workerFunctionError);
+            }
+
+            if (result) {
+              await this.complete(job.id, result);
+            }
+          }
+          // else check if worker is still running and retry
         }
-        // else check if worker is still running and retry
+      } catch (error) {
+        this.logger?.error("Worker died", {
+          queueName: this.queue.name,
+          flowPredix: this.flowPrefix,
+          workerId: this.id,
+        });
+        // TODO: call disconnect here?
       }
     })();
 
-    this.logger?.info("Worker started");
+    this.logger?.info("Worker started", {
+      queueName: this.queue.name,
+      flowPredix: this.flowPrefix,
+      workerId: this.id,
+    });
+  };
+
+  private handleWorkerFunctionError = async (jobId: string, error: any) => {
+    this.logger?.warn("WorkerFunction failed", {
+      queueName: this.queue.name,
+      flowPredix: this.flowPrefix,
+      workerId: this.id,
+      jobId,
+      error,
+    });
+
+    const flowKey = `${this.flowPrefix}:${
+      jobId.includes(":") ? jobId.split(":")[0] : jobId
+    }`;
+    const propertiesToSave = {
+      failed: true,
+      failedErrorMsg: error.message,
+    };
+
+    await hSetMore(this.nonBlockingRedis, flowKey, propertiesToSave).catch(
+      (err) => {
+        this.logger?.error('Failed to set "failed" properties', {
+          queueName: this.queue.name,
+          flowPredix: this.flowPrefix,
+          workerId: this.id,
+          jobId,
+          jobError: error.message,
+          error: err,
+        });
+      }
+    );
   };
 
   /**

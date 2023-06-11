@@ -64,7 +64,7 @@ export default class PrimaryWorker<
 
     const propertiesToSave: AnyObject = result;
     delete propertiesToSave.nextQueue;
-    propertiesToSave.status = `${this.queue.name} done`;
+    propertiesToSave["completed-queue"] = this.queue.name;
 
     // save the result
     await hSetMore(this.nonBlockingRedis, flowKey, propertiesToSave);

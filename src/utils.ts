@@ -29,11 +29,9 @@ const keyTypeMap = new Map<string, KeyType>([
   ["manageRewards", "boolean"],
   ["forceRewardActions", "boolean"],
   ["onlyForThisPlatform", "string"],
-  ["status", "string"],
+  ["completed-queue", "string"],
   ["accessCheckResult", "object"],
   ["updateMembershipResult", "object"],
-  ["childCount", "number"],
-  ["childDoneCount", "number"],
 ]);
 
 export const parse = (keyName: string, value: string) => {
@@ -52,6 +50,15 @@ export const parse = (keyName: string, value: string) => {
     default:
       if (value.startsWith("{")) {
         return JSON.parse(value);
+      }
+      if (value === "true") {
+        return true;
+      }
+      if (value === "false") {
+        return false;
+      }
+      if (!Number.isNaN(+value)) {
+        return +value;
       }
       return value;
   }

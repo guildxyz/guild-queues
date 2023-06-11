@@ -5,7 +5,7 @@ import {
   AccessJob,
   AccessQueueName,
   AccessResult,
-  CreateAccessFlowOptions,
+  CreateAccessJobOptions,
   ManageRewardQueueName,
 } from "./types";
 
@@ -17,7 +17,7 @@ export default class AccessFlow extends Flow<
   ManageRewardQueueName,
   AccessJob,
   AccessResult,
-  CreateAccessFlowOptions
+  CreateAccessJobOptions
 > {
   constructor(options: AccessFlowOptions) {
     // most of the access flow jobs need the userId and roleId

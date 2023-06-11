@@ -62,9 +62,6 @@ export default class ParentWorker<
       });
     });
 
-    // result
-
-    await transaction.exec();
     this.logger?.info("ParentWorker created child jobs", {
       queueName: this.queue.name,
       flowPredix: this.flowPrefix,
@@ -95,6 +92,10 @@ export default class ParentWorker<
     // but in my opinion it's batter than complicating the code here
 
     // call PrimaryWorker.complete
-    return super.complete(flowId, result);
+    await super.complete(flowId, result);
+
+    await transaction.exec();
+
+    return true;
   }
 }

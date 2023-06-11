@@ -19,7 +19,7 @@ export type AccessQueueName =
 /**
  * Options to create flows in the AccessFlow
  */
-export type CreateAccessFlowOptions = {
+export type CreateAccessJobOptions = {
   userId: number;
   roleIds: number[];
   guildId: number;

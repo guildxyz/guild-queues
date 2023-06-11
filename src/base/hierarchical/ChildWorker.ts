@@ -131,8 +131,8 @@ export default class ChildWorker<
       // and mark the child-group done
       await this.nonBlockingRedis.hSet(
         flowKey,
-        "status",
-        `${childJobGroupName} done`
+        "completed-queue",
+        `${childJobGroupName}`
       );
     }
     return false;

@@ -31,7 +31,7 @@ export default class Flow<
   ChildQueueName extends BaseChildQueueName,
   FlowJob extends BaseJob,
   FlowResult extends PrimaryResult<QueueName>,
-  CreateFlowOptions extends AnyObject
+  CreateJobOptions extends AnyObject
 > {
   /**
    * Prefix of the state key-value pair's keys
@@ -114,40 +114,40 @@ export default class Flow<
   };
 
   /**
-   * Create an access flow and put it in the first queue
+   * Create a job and put it in the first queue
    * @param options parameters of the flow
-   * @returns flow's id
+   * @returns the job's id
    */
-  public createFlow = async (options: CreateFlowOptions): Promise<string> => {
-    // generate id for the flow
-    const flowId = uuidV4();
-    const flowKey = `${this.prefix}:${flowId}`;
+  public createJob = async (options: CreateJobOptions): Promise<string> => {
+    // generate id for the job
+    const jobId = uuidV4();
+    const jobKey = `${this.prefix}:${jobId}`;
 
     const transaction = this.redis
       .multi()
       // create the state with the parameters
-      .hSet(flowKey, objectToStringEntries(options));
+      .hSet(jobKey, objectToStringEntries(options));
 
     // add lookup keys
     this.lookupAttributes.forEach((la) => {
       if (typeof options[la] === "string" || typeof options[la] === "number") {
         // if attribute is primitive add one key
-        transaction.rPush(`${this.prefix}:${la}:${options[la]}`, flowId);
+        transaction.rPush(`${this.prefix}:${la}:${options[la]}`, jobId);
       } else if (options[la] instanceof Array) {
         // if it's an array, add one for each element
         options[la].forEach((iterator: any) => {
-          transaction.rPush(`${this.prefix}:${la}:${iterator}`, flowId);
+          transaction.rPush(`${this.prefix}:${la}:${iterator}`, jobId);
         });
       }
     });
 
     // put to the first queue
-    transaction.rPush(this.queues[0].waitingQueueKey, flowId);
+    transaction.rPush(this.queues[0].waitingQueueKey, jobId);
 
     // execute transaction
     await transaction.exec();
 
-    return flowId;
+    return jobId;
   };
 
   /**
@@ -172,7 +172,7 @@ export default class Flow<
    * @returns flow states
    */
   public getFlowsById = async (
-    keyName: keyof CreateFlowOptions,
+    keyName: keyof CreateJobOptions,
     value: string | number
   ) => {
     // typecheck (necessary because CreateFlowOptions extends AnyObject)
