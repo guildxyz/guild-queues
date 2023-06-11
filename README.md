@@ -97,7 +97,7 @@ Processing a job:
   The `queue:waiting` will be `[]`<br>
   and the `queue:processing` will be `[job:123]`
 - Get the job's data<br>
-  `> HGET job:123 userId guildId`
+  `> HGET job:123 userId guildId`<br>
   Will return:
   ```
   {
@@ -107,7 +107,7 @@ Processing a job:
   ```
 - _now the job is executed with the parameters_
 - Save the result<br>
-  `> HSET job:123 access true`
+  `> HSET job:123 access true`<br>
   The `job:123` hash will be:
 
   ```
