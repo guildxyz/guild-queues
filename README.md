@@ -1,6 +1,10 @@
 # Guild Queues
 
-Redis-based message distributed queue library for Guild.xyz's backend infrastructure.
+Redis-based distributed message queue library for Guild.xyz's backend infrastructure.
+
+<p align="center">
+  <img src="./img/guild_qs.png" />
+</p>
 
 ## Installation
 
