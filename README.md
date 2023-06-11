@@ -114,7 +114,7 @@ Processing a job:
   {
     userId: 62,
     guildId: 1985
-    access(): true
+    access: true
   }
   ```
 
@@ -264,7 +264,7 @@ Note: the newest version can be fount here: https://whimsical.com/access-queue-T
   - instead of saving the result to its own state, it will save the result to its parent's state
   - instead of putting the jobId to a next queue, it will check how many child jobs are (of this child group) and how many of them are complete, and if all of them are complete, it will start the job
 
-- There is a change we have to rethink this logic, because it might not be flexible enough, for other use-cases.
+- There is a chance we have to rethink this logic, because it might not be flexible enough, for other use-cases.
 
 ---
 
