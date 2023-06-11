@@ -10,7 +10,22 @@ npm install @guildxyz/queues
 
 ## Example usage
 
-TODO
+```typescript
+// create the flow instance
+const accessFlow = new AccessFlow({
+  redisClientOptions: { url: config.redisHost },
+  logger,
+});
+
+// set up the worker
+accessFlow.createChildWorker("manage-reward:discord", async (job) => {
+  const success = await handleAccessEvent(job);
+  return { success };
+});
+
+// start
+accessFlow.startAll();
+```
 
 ---
 
