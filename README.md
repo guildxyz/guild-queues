@@ -229,7 +229,7 @@ Example: the access/join flow https://whimsical.com/access-queue-TGADUnGjaVLEV13
 
 ![uml](./img/UML.png)
 
-Note: the most newest version can be fount here: https://whimsical.com/access-queue-TGADUnGjaVLEV139AoPxdZ@3CRerdhrAwHFFHCDHoQsxnuu
+Note: the newest version can be fount here: https://whimsical.com/access-queue-TGADUnGjaVLEV139AoPxdZ@3CRerdhrAwHFFHCDHoQsxnuu
 
 ---
 
