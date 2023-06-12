@@ -271,7 +271,7 @@ Note: the newest version can be fount here: https://whimsical.com/access-queue-T
 ### Handling Rate limits
 
 WIP
-https://whimsical.com/access-queue-TGADUnGjaVLEV139AoPxdZ
+https://whimsical.com/access-queue-TGADUnGjaVLEV139AoPxdZ@VsSo8s35WxWyF2SRXAgTFy
 
 ### Advanced job scheduling
 
