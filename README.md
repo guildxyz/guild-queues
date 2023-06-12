@@ -1,6 +1,6 @@
 # Guild Queues
 
-Redis-based distributed message queue library for Guild.xyz's backend infrastructure.
+Redis-based distributed job queue library for Guild.xyz's backend infrastructure.
 
 <p align="center">
   <img src="./img/guild_qs.png" />
@@ -39,7 +39,7 @@ accessFlow.startAll();
 
 ### Why redis?
 
-- most message queues don't support exactly-once processing
+- most message/job queue implementations don't support exactly-once processing
 - we don't want another "magic" technology like Prisma
 - we are familiar with redis
 - no vendor lock-in
@@ -47,8 +47,8 @@ accessFlow.startAll();
 
 ### How can we implement job queues in redis?
 
-- redis implements the [list](https://redis.io/docs/data-types/lists/) data structure and has a command ([LMOVE](https://redis.io/commands/lmove/) or [BLMOVE](https://redis.io/commands/blmove/)) to atomically remove the first/last element of a list and add this element to another list
-- this command is atomic, which guarantees that
+- redis implements the [list](https://redis.io/docs/data-types/lists/) data structure and has commands ([LMOVE](https://redis.io/commands/lmove/) or [BLMOVE](https://redis.io/commands/blmove/)) to atomically remove the first/last element of a list and add this element to another list
+- these commands are atomic, which guarantees that
   - the element will only move to exactly one new list
   - the element will be removed from the first array, so no inconsistency can happen
 - BLMOVE is the blocking variant of LMOVE which means it will wait until an element is present in the first array, so we don't need to check it periodically
@@ -58,13 +58,13 @@ accessFlow.startAll();
 
 ![blmove](./img/blmove.png)
 
-- conclusion: we mark a job for execution and mark it exactly once and also avoid any kind of inconsistencies
+- conclusion: we can mark a job for execution and mark it exactly once and also avoid any kind of inconsistencies
 
 ### Where to store the job's parameters / result?
 
-- we could have stored the job's data serialized in the queues (lists) and deserialize them when we need to use their values, however this would caused several problems (we will see soon why)
+- we can store the job's data serialized in the queues (lists) and deserialize them when we need to use their values, however this would caused several problems (we will see soon why)
 - so we will store the job's data in another redis data structure, in a [hash](https://redis.io/docs/data-types/hashes/) which is basically an object/map containing key-value pairs
-- the hash will contain the params and later the result of the job, and the queues (lists) will only pass the job's ids between each other
+- the hash will contain the params and later the result of the job, and the queues (lists) will only pass the job's ids among each other
 - so first we generate an ID for the job, save the job's data to a hash with the [HSET](https://redis.io/commands/hset/) command and put the job's ID to the waiting queue with the [RPUSH](https://redis.io/commands/rpush/) command
 - then when the job moves to the processing queue we can access the job's parameters buy fetching the hash's fields with the [HGET](https://redis.io/commands/hget/) command
 - finally when the job is done we save the job's result to the hash with the HSET command
@@ -170,7 +170,7 @@ Processing a job:
 - So we need to move a specific element from the processing queue to another queue. Unfortunately redis does not have a native command to do this, so we will use two commands.
   - [LREM](https://redis.io/commands/lrem/), to remove a specific element from the list
   - RPUSH, to put the job to the next waiting queue
-- Because there are two separate commands and redis dows not support ACID transactions we will have a tiny chance to cause inconsistency.<br>
+- Because these are two separate commands and redis does not support [ACID](https://www.ibm.com/docs/en/cics-ts/5.4?topic=processing-acid-properties-transactions) transactions we will have a tiny chance to cause inconsistency.<br>
   The most we can do is
   - we first RPUSH the job to the next queue, then remove it from the current one, so in the worst case it will be executed twice, but won't be lost
   - use [redis transactions](https://redis.io/docs/manual/transactions/#:~:text=Redis%20Transactions%20allow%20the%20execution,are%20serialized%20and%20executed%20sequentially.) which does not guarantee atomic execution but will make sure that no other command will be executed in the middle of the transaction, so we minimize the chance of making inconsistencies
@@ -182,7 +182,7 @@ Processing a job:
 
 ### Abstraction
 
-#### Queues
+#### Queue
 
 - we saw that all we need is a pair of redis lists to represent a basic job queue in redis
 - we will have a Queue class which will represent this structure
@@ -190,14 +190,14 @@ Processing a job:
   - it will store the information about how it is stored in redis: the prefix (e.g. `queue:`), the name of the waiting and processing queues (e.g. `queue:access-check:waiting`), etc.
   - and it will also store some basic information about what fields of the job's hash should be fetched as the job's parameters
 - **so basically a queue is a part of the flow / job pipeline**
-- for example the access check (when the core asks the gate for the accesses of a given user and a role) will be 1 Queue
+- for example the access-check (when the core asks the gate for the accesses of a given user and a role) will be 1 Queue
 
 #### Flow
 
 - A flow is a job pipeline, contains the information about
   - the queues it consists of
   - what job should be executed after one is finished (=what queue comes after another)
-  - **the job's data, the information stored in redis hashes is also defined by the flow, because the same hash will be used throughout the flow**
+  - **a job's state (the information stored in redis hashes) is also defined by the flow, because the same hash will be used throughout the flow**
     - the Flow class is responsive for creating a new job and fetching it (for monitoring purposes)
 
 #### Worker
@@ -264,7 +264,7 @@ Note: the newest version can be fount here: https://whimsical.com/access-queue-T
   - instead of saving the result to its own state, it will save the result to its parent's state
   - instead of putting the jobId to a next queue, it will check how many child jobs are (of this child group) and how many of them are complete, and if all of them are complete, it will start the job
 
-- There is a chance we have to rethink this logic, because it might not be flexible enough, for other use-cases.
+- There is a chance we have to rethink this logic, because it might not be flexible enough, for other use-cases. WIP
 
 ---
 
