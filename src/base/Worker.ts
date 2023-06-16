@@ -14,6 +14,12 @@ import {
   AnyObject,
 } from "./types";
 import { hGetMore, hSetMore } from "../utils";
+import {
+  DEFAULT_LOCK_TIME,
+  DEFAULT_WAIT_TIMEOUT,
+  JOB_KEY_PREFIX,
+  QUEUE_KEY_PREFIX,
+} from "../static";
 
 /**
  * Defines a worker, the framework for job execution
@@ -29,9 +35,9 @@ export default class Worker<
   public readonly id: string;
 
   /**
-   * Prefix of the flow this worker belongs to
+   * Name of the flow this worker belongs to
    */
-  public readonly flowPrefix: string;
+  public readonly flowName: string;
 
   /**
    * The queue to work on
@@ -84,13 +90,13 @@ export default class Worker<
    */
   constructor(options: WorkerOptions<Params, Result>) {
     const defaultValues = {
-      lockTime: 60 * 3,
-      waitingTimeout: 0,
+      lockTime: DEFAULT_LOCK_TIME,
+      waitingTimeout: DEFAULT_WAIT_TIMEOUT,
     };
 
     const {
       queue,
-      flowPrefix,
+      flowName,
       workerFunction,
       logger,
       redisClientOptions,
@@ -99,7 +105,7 @@ export default class Worker<
     } = { ...defaultValues, ...options };
 
     this.queue = queue;
-    this.flowPrefix = flowPrefix;
+    this.flowName = flowName;
     this.logger = logger;
     this.lockTime = lockTime;
     this.waitingTimeout = waitingTimeout;
@@ -126,27 +132,27 @@ export default class Worker<
     );
 
     // set a lock for the job with expiration
-    const itemLockKey = `${this.queue.lockPrefixKey}:${jobId}`;
+    const itemLockKey = `${this.queue.lockKeyPrefix}:${jobId}`;
     await this.nonBlockingRedis.set(itemLockKey, this.id, {
       EX: this.lockTime,
     });
 
-    // get the flow's state attributes
-    const flowKey = `${this.flowPrefix}:${jobId}`;
+    // get the job attributes
+    const jobKey = `${JOB_KEY_PREFIX}:${this.flowName}:${jobId}`;
     const attributes = await hGetMore(
       this.nonBlockingRedis,
-      flowKey,
+      jobKey,
       this.queue.attributesToGet
     );
 
     this.logger?.info("Worker leased job", {
       queueName: this.queue.name,
-      flowPrefix: this.flowPrefix,
+      flowName: this.flowName,
       workerId: this.id,
       jobId,
     });
 
-    // return job with flowId
+    // return job with id
     return { id: jobId, ...attributes } as Params;
   }
 
@@ -157,7 +163,7 @@ export default class Worker<
    * @returns whether it was successful
    */
   protected async complete(jobId: string, result?: Result): Promise<boolean> {
-    const flowKey = `${this.flowPrefix}:${jobId}`;
+    const jobKey = `${JOB_KEY_PREFIX}:${this.flowName}:${jobId}`;
     const { nextQueue } = result;
 
     const propertiesToSave: AnyObject = result;
@@ -165,11 +171,11 @@ export default class Worker<
     propertiesToSave["completed-queue"] = this.queue.name;
 
     // save the result
-    await hSetMore(this.nonBlockingRedis, flowKey, propertiesToSave);
+    await hSetMore(this.nonBlockingRedis, jobKey, propertiesToSave);
 
-    const itemLockKey = `${this.queue.lockPrefixKey}:${jobId}`;
+    const itemLockKey = `${this.queue.lockKeyPrefix}:${jobId}`;
     const nextQueueKey = nextQueue
-      ? `${Queue.keyPrefix}:${nextQueue}:waiting`
+      ? `${QUEUE_KEY_PREFIX}:${nextQueue}:waiting`
       : this.queue.nextQueueKey;
 
     // start a redis transaction
@@ -189,7 +195,7 @@ export default class Worker<
     if (+removedItemCount > 0) {
       this.logger?.info("Worker completed a job", {
         queueName: this.queue.name,
-        flowPredix: this.flowPrefix,
+        flowName: this.flowName,
         workerId: this.id,
         removedLockCount,
       });
@@ -245,7 +251,7 @@ export default class Worker<
   public start = async () => {
     this.logger?.info("Starting worker", {
       queueName: this.queue.name,
-      flowPredix: this.flowPrefix,
+      flowName: this.flowName,
       workerId: this.id,
     });
 
@@ -276,7 +282,7 @@ export default class Worker<
       } catch (error) {
         this.logger?.error("Worker died", {
           queueName: this.queue.name,
-          flowPredix: this.flowPrefix,
+          flowName: this.flowName,
           workerId: this.id,
           error,
         });
@@ -286,7 +292,7 @@ export default class Worker<
 
     this.logger?.info("Worker started", {
       queueName: this.queue.name,
-      flowPredix: this.flowPrefix,
+      flowName: this.flowName,
       workerId: this.id,
     });
   };
@@ -294,25 +300,23 @@ export default class Worker<
   private handleWorkerFunctionError = async (jobId: string, error: any) => {
     this.logger?.warn("WorkerFunction failed", {
       queueName: this.queue.name,
-      flowPredix: this.flowPrefix,
+      flowName: this.flowName,
       workerId: this.id,
       jobId,
       error,
     });
 
-    const flowKey = `${this.flowPrefix}:${
-      jobId.includes(":") ? jobId.split(":")[0] : jobId
-    }`;
+    const jobKey = `${JOB_KEY_PREFIX}:${this.flowName}:${jobId}`;
     const propertiesToSave = {
       failed: true,
       failedErrorMsg: error.message,
     };
 
-    await hSetMore(this.nonBlockingRedis, flowKey, propertiesToSave).catch(
+    await hSetMore(this.nonBlockingRedis, jobKey, propertiesToSave).catch(
       (err) => {
         this.logger?.error('Failed to set "failed" properties', {
           queueName: this.queue.name,
-          flowPredix: this.flowPrefix,
+          flowName: this.flowName,
           workerId: this.id,
           jobId,
           jobError: error.message,

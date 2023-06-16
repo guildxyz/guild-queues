@@ -18,16 +18,16 @@ describe("Check Queue", () => {
     expect(queue.name).toBe(TEST_QUEUE_NAME);
     expect(queue.attributesToGet).toBe(TEST_ATTRIBUTES_TO_GET);
     expect(queue.nextQueueKey).toBe(
-      `${Queue.keyPrefix}:${TEST_NEXT_QUEUE_NAME}:waiting`
+      `${QUEUE_KEY_PREFIX}:${TEST_NEXT_QUEUE_NAME}:waiting`
     );
     expect(queue.waitingQueueKey).toBe(
-      `${Queue.keyPrefix}:${TEST_QUEUE_NAME}:waiting`
+      `${QUEUE_KEY_PREFIX}:${TEST_QUEUE_NAME}:waiting`
     );
     expect(queue.processingQueueKey).toBe(
-      `${Queue.keyPrefix}:${TEST_QUEUE_NAME}:processing`
+      `${QUEUE_KEY_PREFIX}:${TEST_QUEUE_NAME}:processing`
     );
     expect(queue.lockPrefixKey).toBe(
-      `${Queue.keyPrefix}:${TEST_QUEUE_NAME}:lock`
+      `${QUEUE_KEY_PREFIX}:${TEST_QUEUE_NAME}:lock`
     );
   });
 });

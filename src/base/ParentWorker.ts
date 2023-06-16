@@ -2,7 +2,6 @@
 /* eslint-disable no-constant-condition */
 import { v4 as uuidV4 } from "uuid";
 import { delay, objectToStringEntries } from "../utils";
-import Queue from "./Queue";
 import Worker from "./Worker";
 import {
   BaseChildParam,
@@ -11,8 +10,11 @@ import {
   ParentWorkerOptions,
   WorkerFunction,
 } from "./types";
-
-const DEFAULT_PARENT_CHECK_INTERVAL = 1000;
+import {
+  DEFAULT_PARENT_CHECK_INTERVAL,
+  JOB_KEY_PREFIX,
+  QUEUE_KEY_PREFIX,
+} from "../static";
 
 export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
   private checkInterval: number;
@@ -20,7 +22,7 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
   parentWorkerFunction: WorkerFunction<BaseJobParams, BaseJobResult> = async (
     job
   ) => {
-    const jobKey = `${this.flowPrefix}:${job.id}`;
+    const jobKey = `${JOB_KEY_PREFIX}:${this.flowName}:${job.id}`;
     const childParamsKey = `children:${this.queue.name}:params`;
     const childJobsKey = `children:${this.queue.name}:jobs`;
     const [paramsString, jobsString] = await Promise.all([
@@ -39,7 +41,7 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
         if (!p.childName) {
           this.logger.warn("Child name is missing in child params", {
             queueName: this.queue.name,
-            flowPrefix: this.flowPrefix,
+            flowName: this.flowName,
             workerId: this.id,
             jobId: job.id,
           });
@@ -48,8 +50,8 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
 
         const childId = uuidV4();
 
-        const childJobKey = `${childGroup}:${p.childName}:${childId}`;
-        const childQueueKey = `${Queue.keyPrefix}:${childGroup}:${p.childName}:waiting`;
+        const childJobKey = `${JOB_KEY_PREFIX}:${childGroup}:${p.childName}:${childId}`;
+        const childQueueKey = `${QUEUE_KEY_PREFIX}:${childGroup}:${p.childName}:waiting`;
 
         const childJob = p;
         delete childJob.childName;

@@ -131,7 +131,7 @@ export type WorkerOptions<
   /**
    * Prefix of the flow this worker belongs to
    */
-  flowPrefix: string;
+  flowName: string;
   /**
    * The function to execute on jobs
    */
@@ -166,9 +166,9 @@ export type ParentWorkerOptions = Omit<
  */
 export type FlowOptions = {
   /**
-   * Prefix of the state key-value pair's keys
+   * Name of the flow
    */
-  prefix: string;
+  name: string;
   /**
    * Options to create redis connections
    */
@@ -182,7 +182,7 @@ export type FlowOptions = {
    */
   queueOptions: QueueOptions[];
   /**
-   * Attributes which can be used for lookup a state
+   * Attributes which can be used for lookup a job
    */
   lookupAttributes: string[];
 };

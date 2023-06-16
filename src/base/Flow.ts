@@ -15,6 +15,7 @@ import {
 } from "./types";
 import { objectToStringEntries, parseObject } from "../utils";
 import ParentWorker from "./ParentWorker";
+import { JOB_KEY_PREFIX } from "../static";
 
 /**
  * Defines a sequence of Jobs / Queues / Workers
@@ -24,9 +25,9 @@ export default class Flow<
   CreateJobOptions extends AnyObject
 > {
   /**
-   * Prefix of the state key-value pair's keys
+   * Name of the flow
    */
-  public readonly prefix: string;
+  public readonly name: string;
 
   /**
    * Provided logger (no logs if null)
@@ -34,7 +35,7 @@ export default class Flow<
   private readonly logger: ILogger;
 
   /**
-   * Attributes which can be used for lookup a state
+   * Attributes which can be used for lookup a job
    */
   private readonly lookupAttributes: string[];
 
@@ -63,15 +64,10 @@ export default class Flow<
    * @param options parameters of AccessFlow
    */
   constructor(options: FlowOptions) {
-    const {
-      prefix,
-      logger,
-      redisClientOptions,
-      queueOptions,
-      lookupAttributes,
-    } = options;
+    const { name, logger, redisClientOptions, queueOptions, lookupAttributes } =
+      options;
 
-    this.prefix = prefix;
+    this.name = name;
     this.logger = logger;
     this.lookupAttributes = lookupAttributes;
     this.redisClientOptions = redisClientOptions;
@@ -102,22 +98,28 @@ export default class Flow<
   public createJob = async (options: CreateJobOptions): Promise<string> => {
     // generate id for the job
     const jobId = uuidV4();
-    const jobKey = `${this.prefix}:${jobId}`;
+    const jobKey = `${JOB_KEY_PREFIX}:${this.name}:${jobId}`;
 
     const transaction = this.redis
       .multi()
-      // create the state with the parameters
+      // create the job with the parameters
       .hSet(jobKey, objectToStringEntries(options));
 
     // add lookup keys
     this.lookupAttributes.forEach((la) => {
       if (typeof options[la] === "string" || typeof options[la] === "number") {
         // if attribute is primitive add one key
-        transaction.rPush(`${this.prefix}:${la}:${options[la]}`, jobId);
+        transaction.rPush(
+          `${JOB_KEY_PREFIX}:${this.name}:${la}:${options[la]}`,
+          jobId
+        );
       } else if (options[la] instanceof Array) {
         // if it's an array, add one for each element
         options[la].forEach((iterator: any) => {
-          transaction.rPush(`${this.prefix}:${la}:${iterator}`, jobId);
+          transaction.rPush(
+            `${JOB_KEY_PREFIX}:${this.name}:${la}:${iterator}`,
+            jobId
+          );
         });
       }
     });
@@ -132,27 +134,27 @@ export default class Flow<
   };
 
   /**
-   * Get flow states by flowIds
-   * @param flowIds flowIds to get
-   * @returns flow states
+   * Get jobs by ids
+   * @param jobIds job ids
+   * @returns jobs
    */
-  private getFlows = async (flowIds: string[]) => {
+  private getJobs = async (jobIds: string[]) => {
     const transaction = this.redis.multi();
-    flowIds.forEach((flowId) => {
-      const flowKey = `${this.prefix}:${flowId}`;
-      transaction.hGetAll(flowKey);
+    jobIds.forEach((jobId) => {
+      const jobKey = `${JOB_KEY_PREFIX}:${this.name}:${jobId}`;
+      transaction.hGetAll(jobKey);
     });
     const flows = await transaction.exec();
     return flows.map((f) => parseObject(f as any));
   };
 
   /**
-   * Get flow stated by some ids
-   * @param keyName name of the id
-   * @param value value of the id
-   * @returns flow states
+   * Get jobs by some Key
+   * @param keyName name of the key
+   * @param value value of the key
+   * @returns jobs
    */
-  public getFlowsById = async (
+  public getJobsByKey = async (
     keyName: keyof CreateJobOptions,
     value: string | number
   ) => {
@@ -161,12 +163,12 @@ export default class Flow<
       return [];
     }
 
-    const flowIds = await this.redis.lRange(
-      `${this.prefix}:${keyName}:${value}`,
+    const jobIds = await this.redis.lRange(
+      `${JOB_KEY_PREFIX}:${this.name}:${keyName}:${value}`,
       0,
       -1
     );
-    return this.getFlows(flowIds);
+    return this.getJobs(jobIds);
   };
 
   public createWorker = <QueueType extends FlowQueueType = FlowQueueType>(
@@ -178,7 +180,7 @@ export default class Flow<
     const queue = this.queues.find((q) => q.name === queueName);
 
     const worker = new Worker<QueueType["params"], QueueType["result"]>({
-      flowPrefix: this.prefix,
+      flowName: this.name,
       workerFunction,
       queue,
       lockTime,
@@ -200,7 +202,7 @@ export default class Flow<
     const queue = this.queues.find((q) => q.name === queueName);
 
     const worker = new ParentWorker({
-      flowPrefix: this.prefix,
+      flowName: this.name,
       queue,
       lockTime,
       waitTimeout,
@@ -226,7 +228,7 @@ export default class Flow<
       .children.find((c) => c.name === childQueueName);
 
     const worker = new Worker<QueueType["params"], QueueType["result"]>({
-      flowPrefix: childQueueName,
+      flowName: childQueueName,
       workerFunction,
       queue,
       lockTime,

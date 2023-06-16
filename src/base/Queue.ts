@@ -1,14 +1,10 @@
+import { LOCK_KEY_PREFIX, QUEUE_KEY_PREFIX } from "../static";
 import { QueueOptions } from "./types";
 
 /**
  * Stores a queue's properties
  */
 export default class Queue {
-  /**
-   * Prefix of the queue keys
-   */
-  static keyPrefix = "queue";
-
   /**
    * Name of the queue
    */
@@ -37,10 +33,10 @@ export default class Queue {
   /**
    * Prefix of the lock key in redis
    */
-  readonly lockPrefixKey: string;
+  readonly lockKeyPrefix: string;
 
   /**
-   * State attributes to query when fetching a job
+   * Job attributes to query when fetching a job
    */
   readonly attributesToGet: string[];
 
@@ -57,13 +53,13 @@ export default class Queue {
     this.name = queueName;
     this.attributesToGet = attributesToGet || [];
 
-    this.waitingQueueKey = `${Queue.keyPrefix}:${queueName}:waiting`;
-    this.processingQueueKey = `${Queue.keyPrefix}:${queueName}:processing`;
-    this.lockPrefixKey = `${Queue.keyPrefix}:${queueName}:lock`;
+    this.waitingQueueKey = `${QUEUE_KEY_PREFIX}:${queueName}:waiting`;
+    this.processingQueueKey = `${QUEUE_KEY_PREFIX}:${queueName}:processing`;
+    this.lockKeyPrefix = `${LOCK_KEY_PREFIX}:${queueName}`;
 
     if (nextQueueName) {
       this.nextQueueName = nextQueueName;
-      this.nextQueueKey = `${Queue.keyPrefix}:${nextQueueName}:waiting`;
+      this.nextQueueKey = `${QUEUE_KEY_PREFIX}:${nextQueueName}:waiting`;
     }
 
     this.children =

@@ -11,7 +11,7 @@ const createAccessFlow = (options: AccessFlowOptions) => {
   const defaultAttributesToGet = ["userId", "roleIds"];
   //
   const manageRewardAttributeToGet = ["manageRewardAction"];
-  // we want to fetch the access flow states by userId, roleId, guildId
+  // we want to fetch the access flow jobs by userId, roleId, guildId
   const lookupAttributes = ["userId", "roleIds", "guildId"];
 
   // queues of the AccessFlow
@@ -82,7 +82,7 @@ const createAccessFlow = (options: AccessFlowOptions) => {
 
   return new Flow<AccessQueueJob, CreateAccessJobOptions>({
     ...options,
-    prefix: "access-flow",
+    name: "access",
     queueOptions,
     lookupAttributes,
   });
