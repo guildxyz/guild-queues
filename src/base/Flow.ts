@@ -1,36 +1,26 @@
 import { v4 as uuidV4 } from "uuid";
 import { RedisClientOptions, createClient } from "redis";
 import Queue from "./Queue";
+import Worker from "./Worker";
 import {
   AnyObject,
-  BaseJob,
   FlowOptions,
   ILogger,
   IConnectable,
-  PrimaryResult,
   RedisClient,
   WorkerFunction,
   IStartable,
+  BaseJob,
+  ArrayElement,
 } from "./types";
-import PrimaryWorker from "./primary/PrimaryWorker";
-import ChildWorker from "./hierarchical/ChildWorker";
-import {
-  BaseChildJob,
-  BaseChildJobParams,
-  BaseChildQueueName,
-  ParentResult,
-} from "./hierarchical/types";
 import { objectToStringEntries, parseObject } from "../utils";
-import ParentWorker from "./hierarchical/ParentWorker";
+import ParentWorker from "./ParentWorker";
 
 /**
  * Defines a sequence of Jobs / Queues / Workers
  */
 export default class Flow<
-  QueueName extends string,
-  ChildQueueName extends BaseChildQueueName,
-  FlowJob extends BaseJob,
-  FlowResult extends PrimaryResult<QueueName>,
+  FlowQueueType extends BaseJob,
   CreateJobOptions extends AnyObject
 > {
   /**
@@ -51,12 +41,7 @@ export default class Flow<
   /**
    * Queues of the Flow
    */
-  private readonly queues: Queue<QueueName>[];
-
-  /**
-   * Child queues of the Flow
-   */
-  private readonly childQueues: Queue<ChildQueueName>[];
+  private readonly queues: Queue[];
 
   /**
    * Workers of the Flow
@@ -77,13 +62,12 @@ export default class Flow<
    * Set the basic options, initialize queues and redis client
    * @param options parameters of AccessFlow
    */
-  constructor(options: FlowOptions<QueueName, ChildQueueName>) {
+  constructor(options: FlowOptions) {
     const {
       prefix,
       logger,
       redisClientOptions,
       queueOptions,
-      childQueueNames,
       lookupAttributes,
     } = options;
 
@@ -94,9 +78,6 @@ export default class Flow<
     this.redis = createClient(redisClientOptions);
 
     this.queues = queueOptions.map((qo) => new Queue(qo));
-    this.childQueues = childQueueNames.map(
-      (cqn) => new Queue<ChildQueueName>({ queueName: cqn })
-    );
   }
 
   /**
@@ -188,15 +169,15 @@ export default class Flow<
     return this.getFlows(flowIds);
   };
 
-  public createPrimaryWorker = <Job extends FlowJob, Result extends FlowResult>(
-    queueName: QueueName,
-    workerFunction: WorkerFunction<Job, Result>,
+  public createWorker = <QueueType extends FlowQueueType = FlowQueueType>(
+    queueName: QueueType["queueName"],
+    workerFunction: WorkerFunction<QueueType["params"], QueueType["result"]>,
     lockTime?: number,
     waitTimeout?: number
-  ): PrimaryWorker<QueueName, Job, Result> => {
+  ): Worker<QueueType["params"], QueueType["result"]> => {
     const queue = this.queues.find((q) => q.name === queueName);
 
-    const worker = new PrimaryWorker<QueueName, Job, Result>({
+    const worker = new Worker<QueueType["params"], QueueType["result"]>({
       flowPrefix: this.prefix,
       workerFunction,
       queue,
@@ -211,27 +192,15 @@ export default class Flow<
     return worker;
   };
 
-  public createParentWorker = <
-    Job extends FlowJob,
-    ChildJobParam extends BaseChildJobParams<ChildQueueName>,
-    Result extends ParentResult<QueueName, ChildQueueName, ChildJobParam>
-  >(
-    queueName: QueueName,
-    workerFunction: WorkerFunction<Job, Result>,
+  public createParentWorker = <QueueType extends FlowQueueType = FlowQueueType>(
+    queueName: QueueType["queueName"],
     lockTime?: number,
     waitTimeout?: number
-  ): ParentWorker<QueueName, ChildQueueName, Job, ChildJobParam, Result> => {
+  ): ParentWorker => {
     const queue = this.queues.find((q) => q.name === queueName);
 
-    const worker = new ParentWorker<
-      QueueName,
-      ChildQueueName,
-      Job,
-      ChildJobParam,
-      Result
-    >({
+    const worker = new ParentWorker({
       flowPrefix: this.prefix,
-      workerFunction,
       queue,
       lockTime,
       waitTimeout,
@@ -244,27 +213,26 @@ export default class Flow<
     return worker;
   };
 
-  public createChildWorker = <
-    ChildJob extends BaseChildJob<ChildQueueName>,
-    ChildResult
-  >(
-    childQueueName: ChildQueueName,
-    workerFunction: WorkerFunction<ChildJob, ChildResult>,
+  public createChildWorker = <QueueType extends FlowQueueType = FlowQueueType>(
+    parentQueueName: QueueType["queueName"],
+    childName: ArrayElement<QueueType["children"]>["queueName"],
+    workerFunction: WorkerFunction<QueueType["params"], QueueType["result"]>,
     lockTime?: number,
     waitTimeout?: number
-  ): ChildWorker<ChildQueueName, ChildJob, ChildResult> => {
-    const childQueue = this.childQueues.find(
-      (cq) => cq.name === childQueueName
-    );
+  ): Worker<QueueType["params"], QueueType["result"]> => {
+    const childQueueName = `${parentQueueName}:${childName}`;
+    const queue = this.queues
+      .find((q) => q.name === parentQueueName)
+      .children.find((c) => c.name === childQueueName);
 
-    const worker = new ChildWorker<ChildQueueName, ChildJob, ChildResult>({
-      logger: this.logger,
-      flowPrefix: this.prefix,
-      queue: childQueue,
-      redisClientOptions: this.redisClientOptions,
+    const worker = new Worker<QueueType["params"], QueueType["result"]>({
+      flowPrefix: childQueueName,
       workerFunction,
+      queue,
       lockTime,
       waitTimeout,
+      redisClientOptions: this.redisClientOptions,
+      logger: this.logger,
     });
 
     this.workers.push(worker);

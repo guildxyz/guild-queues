@@ -3,7 +3,7 @@ import { QueueOptions } from "./types";
 /**
  * Stores a queue's properties
  */
-export default class Queue<QueueName extends string> {
+export default class Queue {
   /**
    * Prefix of the queue keys
    */
@@ -12,10 +12,15 @@ export default class Queue<QueueName extends string> {
   /**
    * Name of the queue
    */
-  readonly name: QueueName;
+  readonly name: string;
 
   /**
-   * Name of the queue where to put the result
+   * Name of the next queue
+   */
+  readonly nextQueueName: string;
+
+  /**
+   * Key of the queue where to put the result
    */
   readonly nextQueueKey?: string;
 
@@ -39,11 +44,14 @@ export default class Queue<QueueName extends string> {
    */
   readonly attributesToGet: string[];
 
+  // eslint-disable-next-line no-use-before-define
+  readonly children: Queue[];
+
   /**
    * Sets the properties
    * @param options parameters of the queue
    */
-  constructor(options: QueueOptions<QueueName>) {
+  constructor(options: QueueOptions) {
     const { queueName, nextQueueName, attributesToGet } = options;
 
     this.name = queueName;
@@ -54,7 +62,13 @@ export default class Queue<QueueName extends string> {
     this.lockPrefixKey = `${Queue.keyPrefix}:${queueName}:lock`;
 
     if (nextQueueName) {
+      this.nextQueueName = nextQueueName;
       this.nextQueueKey = `${Queue.keyPrefix}:${nextQueueName}:waiting`;
     }
+
+    this.children =
+      options.children?.map(
+        (c) => new Queue({ ...c, queueName: `${queueName}:${c.queueName}` })
+      ) || [];
   }
 }

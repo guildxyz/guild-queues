@@ -6,9 +6,7 @@ import Queue from "./Queue";
 /**
  * Log method which accepts a message and optionally the metadata
  */
-interface ILogMethod {
-  (message: string, meta?: any): any;
-}
+type ILogMethod = (message: string, meta?: any) => any;
 
 /**
  * Accepted logger interface
@@ -49,23 +47,42 @@ export type RedisClient = ReturnType<typeof createClient>;
  */
 export type AnyObject = { [key: string]: any };
 
+/* Utility types */
+export type ArrayElement<ArrAYType> =
+  ArrAYType extends readonly (infer ElementType)[] ? ElementType : never;
+
 /* Base types */
 
 /**
  * A minimal job that a Worker can work with
  */
-export type BaseJob = {
+export type BaseJobParams = {
   id: string;
 };
 
 /**
- * A minimal job that a PrimaryWorker can work with
+ * A minimal job that a Worker can work with
  */
-export type PrimaryResult<QueueName> = {
+export type BaseJobResult = {
   /**
    * The queue to put the next job after the current one is finished.
    */
-  nextQueue?: QueueName;
+  nextQueue?: string;
+};
+
+export type BaseChildParam = AnyObject & {
+  childName: string;
+};
+
+export type ParentParams<ChildParam extends BaseChildParam> = BaseJobParams & {
+  [key: `children:${string}:params`]: ChildParam[];
+};
+
+export type BaseJob = {
+  queueName: string;
+  children?: BaseJob[];
+  params?: BaseJobParams;
+  result?: BaseJobResult;
 };
 
 // Functions
@@ -73,42 +90,44 @@ export type PrimaryResult<QueueName> = {
 /**
  * The function that the worker will execute on the jobs
  */
-export type WorkerFunction<Job extends BaseJob, Result> = (
-  job: Job
-) => Promise<Result>;
+export type WorkerFunction<
+  Params extends BaseJobParams,
+  Result extends BaseJobResult
+> = (job: Params) => Promise<Result>;
 
 // Options
 
 /**
  * Basic queue options
  */
-export type QueueOptions<QueueName extends string> = {
+export type QueueOptions = {
   /**
    * Name of the queue
    */
-  queueName: QueueName;
+  queueName: string;
   /**
    * Name of the queue to put the next job after the current one is finished
    */
-  nextQueueName?: QueueName;
+  nextQueueName?: string;
   /**
    * Default attributes (of the flow) necessary to execute the job
    */
   attributesToGet?: string[];
+
+  children?: QueueOptions[];
 };
 
 /**
  * Basic options of a worker
  */
 export type WorkerOptions<
-  QueueName extends string,
-  Job extends BaseJob,
-  Result
+  Params extends BaseJobParams,
+  Result extends BaseJobResult
 > = {
   /**
    * The queue to work on
    */
-  queue: Queue<QueueName>;
+  queue: Queue;
   /**
    * Prefix of the flow this worker belongs to
    */
@@ -116,7 +135,7 @@ export type WorkerOptions<
   /**
    * The function to execute on jobs
    */
-  workerFunction: WorkerFunction<Job, Result>;
+  workerFunction: WorkerFunction<Params, Result>;
   /**
    * Provided logger (no logs if null)
    */
@@ -135,10 +154,17 @@ export type WorkerOptions<
   redisClientOptions: RedisClientOptions;
 };
 
+export type ParentWorkerOptions = Omit<
+  WorkerOptions<BaseJobParams, null>,
+  "workerFunction"
+> & {
+  checkInterval?: number;
+};
+
 /**
  * Basic options to create a Flow
  */
-export type FlowOptions<QueueName extends string, ChildQueueName> = {
+export type FlowOptions = {
   /**
    * Prefix of the state key-value pair's keys
    */
@@ -154,11 +180,7 @@ export type FlowOptions<QueueName extends string, ChildQueueName> = {
   /**
    * Options to create the Flow's Queues
    */
-  queueOptions: QueueOptions<QueueName>[];
-  /**
-   * Options to create the Flow's child Queues
-   */
-  childQueueNames: ChildQueueName[];
+  queueOptions: QueueOptions[];
   /**
    * Attributes which can be used for lookup a state
    */

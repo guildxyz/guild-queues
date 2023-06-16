@@ -1,76 +1,12 @@
 import { AnyObject, RedisClient } from "./base/types";
 
-export const stringify = (value: any): string => {
-  if (Array.isArray(value) && typeof value[0] === "number") {
-    return value.join(",");
-  }
-
-  switch (typeof value) {
-    case "string":
-      return value;
-    case "object":
-      return JSON.stringify(value);
-    case "number":
-    case "bigint":
-    case "boolean":
-    default:
-      return value.toString();
-  }
-};
-
-type KeyType = "number" | "number[]" | "boolean" | "string" | "object";
-const keyTypeMap = new Map<string, KeyType>([
-  ["userId", "number"],
-  ["guildId", "number"],
-  ["roleIds", "number[]"],
-  ["priority", "number"],
-  ["recheckAccess", "boolean"],
-  ["updateMemberships", "boolean"],
-  ["manageRewards", "boolean"],
-  ["forceRewardActions", "boolean"],
-  ["onlyForThisPlatform", "string"],
-  ["completed-queue", "string"],
-  ["accessCheckResult", "object"],
-  ["updateMembershipResult", "object"],
-]);
-
-export const parse = (keyName: string, value: string) => {
-  const typeOfKey = keyTypeMap.get(keyName);
-  switch (typeOfKey) {
-    case "number":
-      return +value;
-    case "number[]":
-      return value.split(",").map((x) => +x);
-    case "boolean":
-      return value === "true";
-    case "object":
-      return JSON.parse(value);
-    case "string":
-      return value;
-    default:
-      if (value.startsWith("{")) {
-        return JSON.parse(value);
-      }
-      if (value === "true") {
-        return true;
-      }
-      if (value === "false") {
-        return false;
-      }
-      if (!Number.isNaN(+value)) {
-        return +value;
-      }
-      return value;
-  }
-};
-
 export const parseObject = (obj: { [key: string]: string }) =>
   Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [key, parse(key, value)])
+    Object.entries(obj).map(([key, value]) => [key, JSON.parse(value)])
   );
 
 export const objectToStringEntries = (obj: any) =>
-  Object.entries(obj).map<[string, string]>(([k, v]) => [k, stringify(v)]);
+  Object.entries(obj).map<[string, string]>(([k, v]) => [k, JSON.stringify(v)]);
 
 /**
  * Add object's properties to Redis hash as fields
@@ -102,10 +38,15 @@ export const hGetMore = async (
   const attributes = await Promise.all(
     fields.map(async (f) => {
       const value = await redis.hGet(key, f);
-      const parsedValue = parse(f, value);
+      const parsedValue = JSON.parse(value);
       return [f, parsedValue];
     })
   );
   const attributesObject = Object.fromEntries(attributes);
   return attributesObject;
 };
+
+export const delay = (ms: number) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });

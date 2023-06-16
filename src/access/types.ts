@@ -1,20 +1,10 @@
 import { RedisClientOptions } from "redis";
-import { AnyObject, ILogger, PrimaryResult } from "../base/types";
 import {
-  ParentResult,
-  BaseChildJobParams,
-  BaseChildJob,
-} from "../base/hierarchical/types";
-
-/**
- * Names of the queues in the access flow
- */
-export type AccessQueueName =
-  | "preparation"
-  | "access-check"
-  | "update-membership"
-  | "prepare-manage-reward"
-  | "access-result";
+  AnyObject,
+  ILogger,
+  BaseJobParams,
+  BaseJobResult,
+} from "../base/types";
 
 /**
  * Options to create flows in the AccessFlow
@@ -42,7 +32,7 @@ export type AccessFlowOptions = {
 /**
  * A basic job of the access flow
  */
-export type AccessJob = {
+export type AccessParams = {
   id: string;
   userId: number;
   roleIds: number[];
@@ -51,12 +41,15 @@ export type AccessJob = {
 /**
  * A basic result of the access flow
  */
-export type AccessResult = PrimaryResult<AccessQueueName>;
+export type AccessResult = {
+  // eslint-disable-next-line no-use-before-define
+  nextQueue?: AccessQueueJob["queueName"];
+};
 
 /**
- * Job of the preparation queue
+ * Params of the preparation queue
  */
-export type PreparationJob = AccessJob & { recheckAccess: boolean };
+export type PreparationParams = AccessParams & { recheckAccess: boolean };
 
 /**
  * Result of the preparation queue
@@ -66,9 +59,9 @@ export type PreparationResult = AccessResult & {
 };
 
 /**
- * Job of the access-check queue
+ * Params of the access-check queue
  */
-export type AccessCheckJob = AccessJob & {
+export type AccessCheckParams = AccessParams & {
   updateMemberships: boolean;
 };
 
@@ -88,9 +81,9 @@ export type AccessCheckResult = AccessResult & {
 };
 
 /**
- * Job of the update-membership queue
+ * Params of the update-membership queue
  */
-export type UpdateMembershipJob = AccessJob &
+export type UpdateMembershipParams = AccessParams &
   AccessCheckResult & {
     guildId: number;
     manageRewards: boolean;
@@ -125,34 +118,33 @@ export type ManageRewardBase = {
 };
 
 /**
- * Name of a manage-reward child queue
- */
-export type ManageRewardQueueName = `manage-reward:${string}`;
-
-/**
  * Params to create a manage-reward child job
  */
-export type ManageRewardParams = BaseChildJobParams<ManageRewardQueueName> &
-  ManageRewardBase;
+export type ManageRewardChildParams = {
+  childName: string;
+  manageRewardAction: ManageRewardBase; // nested, because this way we only need to HGET one field
+};
 
 /**
- * Manage reward child job
+ * Manage reward child job params
  */
-export type ManageRewardJob = BaseChildJob<ManageRewardQueueName> &
-  ManageRewardBase;
+export type ManageRewardParams = BaseJobParams & {
+  manageRewardAction: ManageRewardBase;
+};
 
 /**
  * Manage reward child result
  */
-export type ManageRewardResult = {
+export type ManageRewardResult = BaseJobResult & {
+  done: true;
   success: boolean;
   errorMsg?: string;
 };
 
 /**
- * Job of the prepare-manage-reward queue
+ * Params of the prepare-manage-reward queue
  */
-export type PrepareManageRewardJob = AccessJob &
+export type PrepareManageRewardParams = AccessParams &
   UpdateMembershipResult & {
     guildId: number;
     forceRewardActions: boolean;
@@ -162,8 +154,63 @@ export type PrepareManageRewardJob = AccessJob &
 /**
  * Result of the prepare-manage-reward queue
  */
-export type PrepareManageRewardResult = ParentResult<
-  AccessQueueName,
-  ManageRewardQueueName,
-  ManageRewardParams
->;
+export type PrepareManageRewardResult = AccessResult & {
+  nextQueue?: never;
+  "children:manage-reward:params": ManageRewardChildParams[];
+};
+
+// *** //
+
+export type PreparationJob = {
+  queueName: "preparation";
+  children: [];
+  params: PreparationParams;
+  result: PreparationResult;
+};
+
+export type AccessCheckJob = {
+  queueName: "access-check";
+  params: AccessCheckParams;
+  result: AccessCheckResult;
+};
+export type UpdateMembershipJob = {
+  queueName: "update-membership";
+  children: [];
+  params: UpdateMembershipParams;
+  result: UpdateMembershipResult;
+};
+export type PrepareManageRewardJob = {
+  queueName: "prepare-manage-reward";
+  children: [];
+  params: PrepareManageRewardParams;
+  result: PrepareManageRewardResult;
+};
+export type ManageRewardJob = {
+  queueName: "manage-reward";
+  children: [
+    { queueName: "discord" },
+    { queueName: "telegram" },
+    { queueName: "github" },
+    { queueName: "google" },
+    { queueName: "nft" }
+  ];
+  params: ManageRewardParams;
+  result: ManageRewardResult;
+};
+export type AccessResultJob = {
+  queueName: "access-result";
+  children: [];
+  params: AccessCheckParams;
+  result: AccessCheckResult;
+};
+
+/**
+ * Names of the queues in the access flow
+ */
+export type AccessQueueJob =
+  | PreparationJob
+  | AccessCheckJob
+  | UpdateMembershipJob
+  | PrepareManageRewardJob
+  | ManageRewardJob
+  | AccessResultJob;
