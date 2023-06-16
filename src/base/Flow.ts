@@ -136,27 +136,55 @@ export default class Flow<
   /**
    * Get jobs by ids
    * @param jobIds job ids
+   * @param resolveChildren whether include child jobs (not just their keys)
    * @returns jobs
    */
-  private getJobs = async (jobIds: string[]) => {
+  private getJobs = async (jobIds: string[], resolveChildren: boolean) => {
     const transaction = this.redis.multi();
     jobIds.forEach((jobId) => {
       const jobKey = `${JOB_KEY_PREFIX}:${this.name}:${jobId}`;
       transaction.hGetAll(jobKey);
     });
-    const flows = await transaction.exec();
-    return flows.map((f) => parseObject(f as any));
+    const jobStrings = await transaction.exec();
+    let jobs = jobStrings.map((j) => parseObject(j as any));
+
+    if (resolveChildren) {
+      // yes, we need this many awaits here
+      jobs = await Promise.all(
+        jobs.map(async (j) =>
+          Object.fromEntries(
+            await Promise.all(
+              Object.entries(j).map(async ([key, value]) => {
+                if (key.match(/^children:.*:jobs$/) && value instanceof Array) {
+                  const children = (
+                    await Promise.all(
+                      value.map(async (v) => this.redis.hGetAll(v))
+                    )
+                  ).map((c) => parseObject(c));
+                  return [key, children];
+                }
+                return [key, value];
+              })
+            )
+          )
+        )
+      );
+    }
+
+    return jobs;
   };
 
   /**
-   * Get jobs by some Key
+   * Get jobs by some key
    * @param keyName name of the key
    * @param value value of the key
+   * @param resolveChildren whether include child jobs (not just their keys)
    * @returns jobs
    */
   public getJobsByKey = async (
     keyName: keyof CreateJobOptions,
-    value: string | number
+    value: string | number,
+    resolveChildren: boolean
   ) => {
     // typecheck (necessary because CreateFlowOptions extends AnyObject)
     if (typeof keyName !== "string") {
@@ -168,7 +196,7 @@ export default class Flow<
       0,
       -1
     );
-    return this.getJobs(jobIds);
+    return this.getJobs(jobIds, resolveChildren);
   };
 
   public createWorker = <QueueType extends FlowQueueType = FlowQueueType>(
