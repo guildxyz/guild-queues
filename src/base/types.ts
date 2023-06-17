@@ -1,7 +1,7 @@
 import { RedisClientOptions, createClient } from "redis";
 import Queue from "./Queue";
 
-/* Interfaces */
+/* ========== Interfaces ========== */
 
 /**
  * Log method which accepts a message and optionally the metadata
@@ -20,22 +20,16 @@ export interface ILogger {
 }
 
 /**
- * Has connect and disconnect method
- */
-export interface IConnectable {
-  connect(): void;
-  disconnect(): void;
-}
-
-/**
- * Has start and stop method
+ * Has connect, disconnect, start and stop method
  */
 export interface IStartable {
+  connect(): void;
+  disconnect(): void;
   start(): void;
   stop(): void;
 }
 
-/* Aliases */
+/* ========== Aliases ========== */
 
 /**
  * Redis client instance
@@ -48,20 +42,21 @@ export type RedisClient = ReturnType<typeof createClient>;
 export type AnyObject = { [key: string]: any };
 
 /* Utility types */
-export type ArrayElement<ArrAYType> =
-  ArrAYType extends readonly (infer ElementType)[] ? ElementType : never;
 
-/* Base types */
+export type ArrayElement<ArrayType> =
+  ArrayType extends readonly (infer ElementType)[] ? ElementType : never;
+
+/* ========== Base types ========== */
 
 /**
- * A minimal job that a Worker can work with
+ * The minimal job that a Worker can work with
  */
 export type BaseJobParams = {
   id: string;
 };
 
 /**
- * A minimal job that a Worker can work with
+ * The minimal job result workerFunction can returng
  */
 export type BaseJobResult = {
   /**
@@ -70,14 +65,16 @@ export type BaseJobResult = {
   nextQueue?: string;
 };
 
+/**
+ * The minimal params to create child jobs
+ */
 export type BaseChildParam = AnyObject & {
   childName: string;
 };
 
-export type ParentParams<ChildParam extends BaseChildParam> = BaseJobParams & {
-  [key: `children:${string}:params`]: ChildParam[];
-};
-
+/**
+ * Job definition for the Flow
+ */
 export type BaseJob = {
   queueName: string;
   children?: BaseJob[];
@@ -85,7 +82,7 @@ export type BaseJob = {
   result?: BaseJobResult;
 };
 
-// Functions
+/* ========== Functions ========== */
 
 /**
  * The function that the worker will execute on the jobs
@@ -95,10 +92,10 @@ export type WorkerFunction<
   Result extends BaseJobResult
 > = (job: Params) => Promise<Result>;
 
-// Options
+/* ========== Options ========== */
 
 /**
- * Basic queue options
+ * Options for creating a queue
  */
 export type QueueOptions = {
   /**
@@ -114,11 +111,14 @@ export type QueueOptions = {
    */
   attributesToGet?: string[];
 
+  /**
+   * Options for creating the child queues
+   */
   children?: QueueOptions[];
 };
 
 /**
- * Basic options of a worker
+ * Options for creating a worker
  */
 export type WorkerOptions<
   Params extends BaseJobParams,
@@ -137,9 +137,9 @@ export type WorkerOptions<
    */
   workerFunction: WorkerFunction<Params, Result>;
   /**
-   * Provided logger (no logs if null)
+   * Provided logger
    */
-  logger?: ILogger;
+  logger: ILogger;
   /**
    * Expiration time of lock keys
    */
@@ -154,10 +154,16 @@ export type WorkerOptions<
   redisClientOptions: RedisClientOptions;
 };
 
+/**
+ * Options for creating a parent worker
+ */
 export type ParentWorkerOptions = Omit<
   WorkerOptions<BaseJobParams, null>,
   "workerFunction"
 > & {
+  /**
+   * The parent will checks if the child jobs are running this often
+   */
   checkInterval?: number;
 };
 
@@ -176,7 +182,7 @@ export type FlowOptions = {
   /**
    * Provided logger (no logs if null)
    */
-  logger?: ILogger;
+  logger: ILogger;
   /**
    * Options to create the Flow's Queues
    */

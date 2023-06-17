@@ -1,11 +1,21 @@
 import { AnyObject, RedisClient } from "./base/types";
 
+/**
+ * Parse object retrieved by HGETs or HGETALL which consists of JSON values
+ * @param obj Object retrieved by HGETs or HGETALL
+ * @returns Fully parsed object
+ */
 export const parseObject = (obj: { [key: string]: string }) =>
   Object.fromEntries(
     Object.entries(obj).map(([key, value]) => [key, JSON.parse(value)])
   );
 
-export const objectToStringEntries = (obj: any) =>
+/**
+ * Stringify object fields (for HSET)
+ * @param obj Object to stringify
+ * @returns Array of string-string key-value pairs
+ */
+export const objectToStringEntries = (obj: any): [string, string][] =>
   Object.entries(obj).map<[string, string]>(([k, v]) => [k, JSON.stringify(v)]);
 
 /**
@@ -46,7 +56,12 @@ export const hGetMore = async (
   return attributesObject;
 };
 
-export const delay = (ms: number) =>
-  new Promise((resolve) => {
+/**
+ * Wait X milliseconds
+ * @param ms milliseconds to wait
+ * @returns Promise to await
+ */
+export const delay = (ms: number): Promise<void> =>
+  new Promise<void>((resolve) => {
     setTimeout(resolve, ms);
   });

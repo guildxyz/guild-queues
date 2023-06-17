@@ -26,7 +26,7 @@ export type CreateAccessJobOptions = {
  */
 export type AccessFlowOptions = {
   redisClientOptions: RedisClientOptions;
-  logger?: ILogger;
+  logger: ILogger;
 };
 
 /**
@@ -159,8 +159,9 @@ export type PrepareManageRewardResult = AccessResult & {
   "children:manage-reward:params": ManageRewardChildParams[];
 };
 
-// *** //
-
+/**
+ * Preparation job definition
+ */
 export type PreparationJob = {
   queueName: "preparation";
   children: [];
@@ -168,23 +169,38 @@ export type PreparationJob = {
   result: PreparationResult;
 };
 
+/**
+ * AccessCheck job definition
+ */
 export type AccessCheckJob = {
   queueName: "access-check";
   params: AccessCheckParams;
   result: AccessCheckResult;
 };
+
+/**
+ * UpdateMembership job definition
+ */
 export type UpdateMembershipJob = {
   queueName: "update-membership";
   children: [];
   params: UpdateMembershipParams;
   result: UpdateMembershipResult;
 };
+
+/**
+ * PrepareManageReward job definition
+ */
 export type PrepareManageRewardJob = {
   queueName: "prepare-manage-reward";
   children: [];
   params: PrepareManageRewardParams;
   result: PrepareManageRewardResult;
 };
+
+/**
+ * ManageReward job definition
+ */
 export type ManageRewardJob = {
   queueName: "manage-reward";
   children: [
@@ -197,6 +213,10 @@ export type ManageRewardJob = {
   params: ManageRewardParams;
   result: ManageRewardResult;
 };
+
+/**
+ * AccessResult job definition
+ */
 export type AccessResultJob = {
   queueName: "access-result";
   children: [];

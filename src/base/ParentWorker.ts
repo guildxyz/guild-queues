@@ -16,12 +16,24 @@ import {
   QUEUE_KEY_PREFIX,
 } from "../static";
 
+/**
+ * Special worker which only creates child jobs and checks their status periodically
+ */
 export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
+  /**
+   * Check if the child jobs are running this often
+   */
   private checkInterval: number;
 
+  /**
+   * Creates child jobs (if they don't exist) and checks their status periodically
+   * @param job The job to execute
+   * @returns result which contains the next queue
+   */
   parentWorkerFunction: WorkerFunction<BaseJobParams, BaseJobResult> = async (
     job
   ) => {
+    // get the params and ids (if they exist) of the child jobs from redis
     const jobKey = `${JOB_KEY_PREFIX}:${this.flowName}:${job.id}`;
     const childParamsKey = `children:${this.queue.name}:params`;
     const childJobsKey = `children:${this.queue.name}:jobs`;
@@ -34,7 +46,9 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
     const params: BaseChildParam[] = JSON.parse(paramsString);
     let jobs: string[] = jobsString ? JSON.parse(jobsString) : [];
 
-    if (params.length > jobs.length) {
+    // if the jobs haven't been created yet, create them
+    // (this makes the parent worker idempotent)
+    if (jobs.length === 0) {
       const transaction = this.nonBlockingRedis.multi();
       const newJobs: string[] = [];
       params.forEach((p) => {
@@ -48,6 +62,7 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
           return;
         }
 
+        // generate child job id
         const childId = uuidV4();
 
         const childJobKey = `${JOB_KEY_PREFIX}:${childGroup}:${p.childName}:${childId}`;
@@ -56,33 +71,49 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
         const childJob = p;
         delete childJob.childName;
 
+        // create child job state
         transaction.hSet(childJobKey, objectToStringEntries(childJob));
+        // put it to the child queue
         transaction.rPush(childQueueKey, childId);
 
+        // also store the child job keys for checking
         newJobs.push(childJobKey);
       });
+
+      // save the generated jobs to the parent
       transaction.hSet(jobKey, childJobsKey, JSON.stringify(newJobs));
       await transaction.exec();
       jobs = newJobs;
     }
 
+    // periodical checking
     while (true) {
-      await delay(this.checkInterval);
+      // get the child job's done field
       const transaction = this.nonBlockingRedis.multi();
       jobs.forEach((j) => {
         transaction.hGet(j, "done");
       });
       const results = await transaction.exec();
+
+      // check if all of them are done
       if (results.every((r) => r === "true")) {
         break;
       }
+
+      // wait checkInterval milliseconds
+      await delay(this.checkInterval);
     }
 
+    // return with the next queue, so it the job will be passed there
     return {
       nextQueue: this.queue.nextQueueName,
     };
   };
 
+  /**
+   * OOP boilerplate
+   * @param options Options to create a parent worker
+   */
   constructor(options: ParentWorkerOptions) {
     super({
       workerFunction: null,

@@ -6,7 +6,6 @@ import {
   AnyObject,
   FlowOptions,
   ILogger,
-  IConnectable,
   RedisClient,
   WorkerFunction,
   IStartable,
@@ -21,7 +20,7 @@ import { JOB_KEY_PREFIX } from "../static";
  * Defines a sequence of Jobs / Queues / Workers
  */
 export default class Flow<
-  FlowQueueType extends BaseJob,
+  FlowJob extends BaseJob,
   CreateJobOptions extends AnyObject,
   LookupAttributes extends keyof CreateJobOptions
 > {
@@ -31,7 +30,7 @@ export default class Flow<
   public readonly name: string;
 
   /**
-   * Provided logger (no logs if null)
+   * Provided logger
    */
   private readonly logger: ILogger;
 
@@ -48,7 +47,7 @@ export default class Flow<
   /**
    * Workers of the Flow
    */
-  private workers: (IConnectable & IStartable)[] = [];
+  private workers: IStartable[] = [];
 
   /**
    * Options to create redis connections
@@ -200,15 +199,23 @@ export default class Flow<
     return this.getJobs(jobIds, resolveChildren);
   };
 
-  public createWorker = <QueueType extends FlowQueueType = FlowQueueType>(
-    queueName: QueueType["queueName"],
-    workerFunction: WorkerFunction<QueueType["params"], QueueType["result"]>,
+  /**
+   * Create a worker for a queue
+   * @param queueName Name of the queue the worker will work on
+   * @param workerFunction The function that will be executed on the jobs
+   * @param lockTime Expiration time of a job execution
+   * @param waitTimeout Maximum number of seconds to wait for job before checking status
+   * @returns The worker
+   */
+  public createWorker = <QueueJob extends FlowJob = FlowJob>(
+    queueName: QueueJob["queueName"],
+    workerFunction: WorkerFunction<QueueJob["params"], QueueJob["result"]>,
     lockTime?: number,
     waitTimeout?: number
-  ): Worker<QueueType["params"], QueueType["result"]> => {
+  ): Worker<QueueJob["params"], QueueJob["result"]> => {
     const queue = this.queues.find((q) => q.name === queueName);
 
-    const worker = new Worker<QueueType["params"], QueueType["result"]>({
+    const worker = new Worker<QueueJob["params"], QueueJob["result"]>({
       flowName: this.name,
       workerFunction,
       queue,
@@ -223,8 +230,15 @@ export default class Flow<
     return worker;
   };
 
-  public createParentWorker = <QueueType extends FlowQueueType = FlowQueueType>(
-    queueName: QueueType["queueName"],
+  /**
+   * Create a parent worker for a queue which has children
+   * @param queueName Name of the queue the worker will work on
+   * @param lockTime Expiration time of a job execution
+   * @param waitTimeout Maximum number of seconds to wait for job before checking status
+   * @returns The parent worker
+   */
+  public createParentWorker = <QueueJob extends FlowJob = FlowJob>(
+    queueName: QueueJob["queueName"],
     lockTime?: number,
     waitTimeout?: number
   ): ParentWorker => {
@@ -244,19 +258,28 @@ export default class Flow<
     return worker;
   };
 
-  public createChildWorker = <QueueType extends FlowQueueType = FlowQueueType>(
-    parentQueueName: QueueType["queueName"],
-    childName: ArrayElement<QueueType["children"]>["queueName"],
-    workerFunction: WorkerFunction<QueueType["params"], QueueType["result"]>,
+  /**
+   * Create a worker for a child queue
+   * @param parentQueueName Name of the parent queue
+   * @param childName Name of the child within the parent (parentQueueName+childName=childQueueName)
+   * @param workerFunction The function that will be executed on the jobs
+   * @param lockTime Expiration time of a job execution
+   * @param waitTimeout Maximum number of seconds to wait for job before checking status
+   * @returns The worker
+   */
+  public createChildWorker = <QueueJob extends FlowJob = FlowJob>(
+    parentQueueName: QueueJob["queueName"],
+    childName: ArrayElement<QueueJob["children"]>["queueName"],
+    workerFunction: WorkerFunction<QueueJob["params"], QueueJob["result"]>,
     lockTime?: number,
     waitTimeout?: number
-  ): Worker<QueueType["params"], QueueType["result"]> => {
+  ): Worker<QueueJob["params"], QueueJob["result"]> => {
     const childQueueName = `${parentQueueName}:${childName}`;
     const queue = this.queues
       .find((q) => q.name === parentQueueName)
       .children.find((c) => c.name === childQueueName);
 
-    const worker = new Worker<QueueType["params"], QueueType["result"]>({
+    const worker = new Worker<QueueJob["params"], QueueJob["result"]>({
       flowName: childQueueName,
       workerFunction,
       queue,
@@ -271,12 +294,18 @@ export default class Flow<
     return worker;
   };
 
+  /**
+   * Connect and start all workers
+   */
   public startAll = async () => {
     await this.connect();
     await Promise.all(this.workers.map((w) => w.connect()));
     await Promise.all(this.workers.map((w) => w.start()));
   };
 
+  /**
+   * Stop and disconnect all workers
+   */
   public stopAll = async () => {
     await Promise.all(this.workers.map((w) => w.stop()));
     await Promise.all(this.workers.map((w) => w.disconnect()));

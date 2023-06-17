@@ -8,7 +8,6 @@ import {
   ILogger,
   RedisClient,
   WorkerOptions,
-  IConnectable,
   IStartable,
   BaseJobResult,
   AnyObject,
@@ -27,7 +26,7 @@ import {
 export default class Worker<
   Params extends BaseJobParams,
   Result extends BaseJobResult
-> implements IConnectable, IStartable
+> implements IStartable
 {
   /**
    * Uuid of the worker
@@ -35,7 +34,7 @@ export default class Worker<
   public readonly id: string;
 
   /**
-   * Name of the flow this worker belongs to
+   * Name of the flow the worker belongs to
    */
   public readonly flowName: string;
 
@@ -50,7 +49,7 @@ export default class Worker<
   protected workerFunction: WorkerFunction<Params, Result>;
 
   /**
-   * Provided logger (no logs if null)
+   * Provided logger
    */
   protected logger: ILogger;
 
@@ -62,7 +61,7 @@ export default class Worker<
   /**
    * Redis instance for non-blocking operations
    */
-  public nonBlockingRedis: RedisClient;
+  protected nonBlockingRedis: RedisClient;
 
   /**
    * Loop for running jobs
@@ -85,7 +84,7 @@ export default class Worker<
   public status: "ready" | "running" | "stopping" | "stopped";
 
   /**
-   * Set the properties, generate workerId, initialize redis clients
+   * Set the properties, generate workerId, initialize redis clients, etc.
    * @param options
    */
   constructor(options: WorkerOptions<Params, Result>) {
@@ -145,7 +144,7 @@ export default class Worker<
       this.queue.attributesToGet
     );
 
-    this.logger?.info("Worker leased a job", {
+    this.logger.info("Worker leased a job", {
       queueName: this.queue.name,
       flowName: this.flowName,
       workerId: this.id,
@@ -157,7 +156,7 @@ export default class Worker<
   }
 
   /**
-   * Updates the flow's status, removed the specified job from the queue and adds it to the next one
+   * Updates the job's status, removed the job from the queue and adds it to the next one
    * @param jobId the job's id
    * @param result the result of the job
    * @returns whether it was successful
@@ -193,7 +192,7 @@ export default class Worker<
 
     // check if the job was remove successfully from the current queue
     if (+removedItemCount > 0) {
-      this.logger?.info("Worker completed a job", {
+      this.logger.info("Worker completed a job", {
         queueName: this.queue.name,
         flowName: this.flowName,
         workerId: this.id,
@@ -214,7 +213,7 @@ export default class Worker<
       abortSuccessful = abortResult === 1;
     }
 
-    this.logger?.warn(
+    this.logger.warn(
       `inconsistency in complete(), item not found in processing queue`,
       {
         name: this.queue.name,
@@ -245,6 +244,9 @@ export default class Worker<
     return this;
   };
 
+  /**
+   * Loop for executing jobs until the Worker is running
+   */
   private eventLoopFunction = async () => {
     try {
       while (this.status === "running") {
@@ -266,7 +268,7 @@ export default class Worker<
         // else check if worker is still running and retry
       }
     } catch (error) {
-      this.logger?.error("Worker died", {
+      this.logger.error("Worker died", {
         queueName: this.queue.name,
         flowName: this.flowName,
         workerId: this.id,
@@ -280,7 +282,7 @@ export default class Worker<
    * Start the job execution
    */
   public start = async () => {
-    this.logger?.info("Starting worker", {
+    this.logger.info("Starting worker", {
       queueName: this.queue.name,
       flowName: this.flowName,
       workerId: this.id,
@@ -292,7 +294,7 @@ export default class Worker<
     // start a loop for job execution
     this.eventLoop = this.eventLoopFunction();
 
-    this.logger?.info("Worker started", {
+    this.logger.info("Worker started", {
       queueName: this.queue.name,
       flowName: this.flowName,
       workerId: this.id,
@@ -303,7 +305,7 @@ export default class Worker<
    * Stop the job execution (the current job will be completed)
    */
   public stop = async () => {
-    this.logger?.info("Stopping worker", {
+    this.logger.info("Stopping worker", {
       queueName: this.queue.name,
       workerId: this.id,
     });
@@ -315,11 +317,16 @@ export default class Worker<
     // mark status as stopped
     this.status = "stopped";
 
-    this.logger?.info("Worker stopped");
+    this.logger.info("Worker stopped");
   };
 
+  /**
+   * Log and save workerFunction error
+   * @param jobId The jobs's id
+   * @param error The error thrown by the workerFunction
+   */
   private handleWorkerFunctionError = async (jobId: string, error: any) => {
-    this.logger?.warn("WorkerFunction failed", {
+    this.logger.warn("WorkerFunction failed", {
       queueName: this.queue.name,
       flowName: this.flowName,
       workerId: this.id,
@@ -329,13 +336,14 @@ export default class Worker<
 
     const jobKey = `${JOB_KEY_PREFIX}:${this.flowName}:${jobId}`;
     const propertiesToSave = {
+      done: true,
       failed: true,
       failedErrorMsg: error.message,
     };
 
     await hSetMore(this.nonBlockingRedis, jobKey, propertiesToSave).catch(
       (err) => {
-        this.logger?.error('Failed to set "failed" properties', {
+        this.logger.error('Failed to set "failed" properties', {
           queueName: this.queue.name,
           flowName: this.flowName,
           workerId: this.id,

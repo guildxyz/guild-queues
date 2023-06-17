@@ -1,3 +1,4 @@
+/* eslint-disable no-use-before-define */
 import { LOCK_KEY_PREFIX, QUEUE_KEY_PREFIX } from "../static";
 import { QueueOptions } from "./types";
 
@@ -40,7 +41,9 @@ export default class Queue {
    */
   readonly attributesToGet: string[];
 
-  // eslint-disable-next-line no-use-before-define
+  /**
+   * Child queues
+   */
   readonly children: Queue[];
 
   /**
