@@ -57,7 +57,7 @@ export default class Worker<
   /**
    * Redis instance for blocking operations
    */
-  protected blockingRedis: RedisClient;
+  private blockingRedis: RedisClient;
 
   /**
    * Redis instance for non-blocking operations
@@ -67,7 +67,7 @@ export default class Worker<
   /**
    * Loop for running jobs
    */
-  private scheduler: Promise<void>;
+  private eventLoop: Promise<void>;
 
   /**
    * Expiration time of lock keys
@@ -121,7 +121,7 @@ export default class Worker<
    * @param timeout maximum number of seconds to block (zero means block indefinitely)
    * @returns the job
    */
-  protected async lease(timeout: number): Promise<Params> {
+  private async lease(timeout: number): Promise<Params> {
     // move a job from the waiting queue to the processing queue
     const jobId: string = await this.blockingRedis.blMove(
       this.queue.waitingQueueKey,
@@ -145,7 +145,7 @@ export default class Worker<
       this.queue.attributesToGet
     );
 
-    this.logger?.info("Worker leased job", {
+    this.logger?.info("Worker leased a job", {
       queueName: this.queue.name,
       flowName: this.flowName,
       workerId: this.id,
@@ -162,7 +162,7 @@ export default class Worker<
    * @param result the result of the job
    * @returns whether it was successful
    */
-  protected async complete(jobId: string, result?: Result): Promise<boolean> {
+  private async complete(jobId: string, result?: Result): Promise<boolean> {
     const jobKey = `${JOB_KEY_PREFIX}:${this.flowName}:${jobId}`;
     const { nextQueue } = result;
 
@@ -245,6 +245,37 @@ export default class Worker<
     return this;
   };
 
+  private eventLoopFunction = async () => {
+    try {
+      while (this.status === "running") {
+        const job = await this.lease(this.waitingTimeout);
+
+        // if there's a job execute it
+        if (job) {
+          let result: Result;
+          try {
+            result = await this.workerFunction(job);
+          } catch (workerFunctionError: any) {
+            await this.handleWorkerFunctionError(job.id, workerFunctionError);
+          }
+
+          if (result) {
+            await this.complete(job.id, result);
+          }
+        }
+        // else check if worker is still running and retry
+      }
+    } catch (error) {
+      this.logger?.error("Worker died", {
+        queueName: this.queue.name,
+        flowName: this.flowName,
+        workerId: this.id,
+        error,
+      });
+      // TODO: call disconnect here?
+    }
+  };
+
   /**
    * Start the job execution
    */
@@ -259,42 +290,32 @@ export default class Worker<
     this.status = "running";
 
     // start a loop for job execution
-    this.scheduler = (async () => {
-      try {
-        while (this.status === "running") {
-          const job = await this.lease(this.waitingTimeout);
-
-          // if there's a job execute it
-          if (job) {
-            let result: Result;
-            try {
-              result = await this.workerFunction(job);
-            } catch (workerFunctionError: any) {
-              await this.handleWorkerFunctionError(job.id, workerFunctionError);
-            }
-
-            if (result) {
-              await this.complete(job.id, result);
-            }
-          }
-          // else check if worker is still running and retry
-        }
-      } catch (error) {
-        this.logger?.error("Worker died", {
-          queueName: this.queue.name,
-          flowName: this.flowName,
-          workerId: this.id,
-          error,
-        });
-        // TODO: call disconnect here?
-      }
-    })();
+    this.eventLoop = this.eventLoopFunction();
 
     this.logger?.info("Worker started", {
       queueName: this.queue.name,
       flowName: this.flowName,
       workerId: this.id,
     });
+  };
+
+  /**
+   * Stop the job execution (the current job will be completed)
+   */
+  public stop = async () => {
+    this.logger?.info("Stopping worker", {
+      queueName: this.queue.name,
+      workerId: this.id,
+    });
+
+    // notify scheduler to stop the execution
+    this.status = "stopping";
+    // wait until the scheduler is stopped
+    await this.eventLoop;
+    // mark status as stopped
+    this.status = "stopped";
+
+    this.logger?.info("Worker stopped");
   };
 
   private handleWorkerFunctionError = async (jobId: string, error: any) => {
@@ -324,24 +345,5 @@ export default class Worker<
         });
       }
     );
-  };
-
-  /**
-   * Stop the job execution (the current job will be completed)
-   */
-  public stop = async () => {
-    this.logger?.info("Stopping worker", {
-      queueName: this.queue.name,
-      workerId: this.id,
-    });
-
-    // notify scheduler to stop the execution
-    this.status = "stopping";
-    // wait until the scheduler is stopped
-    await this.scheduler;
-    // mark status as stopped
-    this.status = "stopped";
-
-    this.logger?.info("Worker stopped");
   };
 }
