@@ -80,7 +80,11 @@ const createAccessFlow = (options: AccessFlowOptions) => {
     },
   ];
 
-  return new Flow<AccessQueueJob, CreateAccessJobOptions>({
+  return new Flow<
+    AccessQueueJob,
+    CreateAccessJobOptions,
+    "guildId" | "roleIds" | "userId"
+  >({
     ...options,
     name: "access",
     queueOptions,

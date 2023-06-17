@@ -22,7 +22,8 @@ import { JOB_KEY_PREFIX } from "../static";
  */
 export default class Flow<
   FlowQueueType extends BaseJob,
-  CreateJobOptions extends AnyObject
+  CreateJobOptions extends AnyObject,
+  LookupAttributes extends keyof CreateJobOptions
 > {
   /**
    * Name of the flow
@@ -182,7 +183,7 @@ export default class Flow<
    * @returns jobs
    */
   public getJobsByKey = async (
-    keyName: keyof CreateJobOptions,
+    keyName: LookupAttributes,
     value: string | number,
     resolveChildren: boolean
   ) => {
