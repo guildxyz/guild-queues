@@ -11,6 +11,7 @@ import {
   WorkerFunction,
 } from "./types";
 import {
+  DEFAULT_KEY_EXPIRY,
   DEFAULT_PARENT_CHECK_INTERVAL,
   JOB_KEY_PREFIX,
   QUEUE_KEY_PREFIX,
@@ -73,6 +74,7 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
 
         // create child job state
         transaction.hSet(childJobKey, objectToStringEntries(childJob));
+        transaction.expire(childJobKey, DEFAULT_KEY_EXPIRY);
         // put it to the child queue
         transaction.rPush(childQueueKey, childId);
 

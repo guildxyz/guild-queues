@@ -14,7 +14,7 @@ import {
 } from "./types";
 import { objectToStringEntries, parseObject } from "../utils";
 import ParentWorker from "./ParentWorker";
-import { JOB_KEY_PREFIX } from "../static";
+import { DEFAULT_KEY_EXPIRY, JOB_KEY_PREFIX } from "../static";
 
 /**
  * Defines a sequence of Jobs / Queues / Workers
@@ -103,23 +103,22 @@ export default class Flow<
     const transaction = this.redis
       .multi()
       // create the job with the parameters
-      .hSet(jobKey, objectToStringEntries(options));
+      .hSet(jobKey, objectToStringEntries(options))
+      .expire(jobKey, DEFAULT_KEY_EXPIRY);
 
     // add lookup keys
     this.lookupAttributes.forEach((la) => {
       if (typeof options[la] === "string" || typeof options[la] === "number") {
         // if attribute is primitive add one key
-        transaction.rPush(
-          `${JOB_KEY_PREFIX}:${this.name}:${la}:${options[la]}`,
-          jobId
-        );
+        const key = `${JOB_KEY_PREFIX}:${this.name}:${la}:${options[la]}`;
+        transaction.rPush(key, jobId);
+        transaction.expire(key, DEFAULT_KEY_EXPIRY);
       } else if (options[la] instanceof Array) {
         // if it's an array, add one for each element
         options[la].forEach((iterator: any) => {
-          transaction.rPush(
-            `${JOB_KEY_PREFIX}:${this.name}:${la}:${iterator}`,
-            jobId
-          );
+          const key = `${JOB_KEY_PREFIX}:${this.name}:${la}:${iterator}`;
+          transaction.rPush(key, jobId);
+          transaction.expire(key, DEFAULT_KEY_EXPIRY);
         });
       }
     });
