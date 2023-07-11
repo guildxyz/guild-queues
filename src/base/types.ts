@@ -192,3 +192,11 @@ export type FlowOptions = {
    */
   lookupAttributes: string[];
 };
+
+export type FlowMonitorOptions = {
+  redisClientOptions: RedisClientOptions;
+  flowName: string;
+  queueNames: string[];
+  logger: ILogger;
+  intervalMs?: number;
+};
