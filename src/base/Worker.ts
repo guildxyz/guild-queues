@@ -88,11 +88,6 @@ export default class Worker<
    * @param options
    */
   constructor(options: WorkerOptions<Params, Result>) {
-    const defaultValues = {
-      lockTime: DEFAULT_LOCK_TIME,
-      waitingTimeout: DEFAULT_WAIT_TIMEOUT,
-    };
-
     const {
       queue,
       flowName,
@@ -100,14 +95,14 @@ export default class Worker<
       logger,
       redisClientOptions,
       lockTime,
-      waitingTimeout,
-    } = { ...defaultValues, ...options };
+      waitTimeout,
+    } = options;
 
     this.queue = queue;
     this.flowName = flowName;
     this.logger = logger;
-    this.lockTime = lockTime;
-    this.waitingTimeout = waitingTimeout;
+    this.lockTime = lockTime ?? DEFAULT_LOCK_TIME;
+    this.waitingTimeout = waitTimeout ?? DEFAULT_WAIT_TIMEOUT;
     this.workerFunction = workerFunction;
     this.blockingRedis = createClient(redisClientOptions);
     this.nonBlockingRedis = createClient(redisClientOptions);
