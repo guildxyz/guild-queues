@@ -13,7 +13,7 @@ export type CreateAccessJobOptions = {
   userId: number;
   roleIds: number[];
   guildId: number;
-  priority: number;
+  priority?: number;
   recheckAccess: boolean;
   updateMemberships: boolean;
   manageRewards: boolean;
