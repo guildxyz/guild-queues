@@ -348,5 +348,18 @@ export default class Worker<
         });
       }
     );
+
+    await this.nonBlockingRedis
+      .lRem(this.queue.processingQueueKey, 1, jobId)
+      .catch((err) => {
+        this.logger.error("Failed to remove failed job from processing queue", {
+          queueName: this.queue.name,
+          flowName: this.flowName,
+          workerId: this.id,
+          jobId,
+          jobError: error.message,
+          error: err,
+        });
+      });
   };
 }
