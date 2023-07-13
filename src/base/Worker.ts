@@ -116,6 +116,12 @@ export default class Worker<
    * @returns the job
    */
   private async lease(timeout: number): Promise<Params> {
+    const propertiesToLog = {
+      queueName: this.queue.name,
+      flowName: this.flowName,
+      workerId: this.id,
+    };
+
     // move a job from the waiting queue to the processing queue
     const jobId: string = await this.blockingRedis.blMove(
       this.queue.waitingQueueKey,
@@ -140,9 +146,7 @@ export default class Worker<
     );
 
     this.logger.info("Worker leased a job", {
-      queueName: this.queue.name,
-      flowName: this.flowName,
-      workerId: this.id,
+      ...propertiesToLog,
       jobId,
     });
 
@@ -157,6 +161,24 @@ export default class Worker<
    * @returns whether it was successful
    */
   private async complete(jobId: string, result?: Result): Promise<boolean> {
+    const propertiesToLog = {
+      queueName: this.queue.name,
+      flowName: this.flowName,
+      workerId: this.id,
+      jobId,
+    };
+
+    const lock = await this.nonBlockingRedis.get(
+      `lock:${this.queue.name}:${jobId}`
+    );
+    if (!lock) {
+      this.logger.info(
+        `No lock found for job, skipping complete`,
+        propertiesToLog
+      );
+      return false;
+    }
+
     const jobKey = `${JOB_KEY_PREFIX}:${this.flowName}:${jobId}`;
     const { nextQueue } = result;
 
@@ -188,9 +210,7 @@ export default class Worker<
     // check if the job was remove successfully from the current queue
     if (+removedItemCount > 0) {
       this.logger.info("Worker completed a job", {
-        queueName: this.queue.name,
-        flowName: this.flowName,
-        workerId: this.id,
+        ...propertiesToLog,
         removedLockCount,
       });
       return true;
@@ -211,9 +231,7 @@ export default class Worker<
     this.logger.warn(
       `inconsistency in complete(), item not found in processing queue`,
       {
-        name: this.queue.name,
-        processingQueueKey: this.queue.processingQueueKey,
-        jobId,
+        ...propertiesToLog,
         abortSuccessful,
       }
     );
