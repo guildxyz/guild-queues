@@ -221,16 +221,6 @@ Note: the redis hash where the job's data is stored will be called the _state of
 
 Example: the access/join flow https://whimsical.com/access-queue-TGADUnGjaVLEV139AoPxdZ@VsSo8s35Wy8ndXd5AHDbf5
 
-### Implementation
-
-- In the implementation all the above is implemented as generic classes (base directory), and the specific flows/queues/workers can inherit from them (e.g. the access flow's classes are in the access directory)
-
-#### UML diagram
-
-![uml](./img/UML.png)
-
-Note: the newest version can be fount here: https://whimsical.com/access-queue-TGADUnGjaVLEV139AoPxdZ@3CRerdhrAwHFFHCDHoQsxnuu
-
 #### Redis key names
 
 - `queue:<queueName>:<stage>`
@@ -266,34 +256,7 @@ Note: the newest version can be fount here: https://whimsical.com/access-queue-T
 
 - Unfortunately the join flow has a part where it gets more complicated than just having one queue after another. After the access-check and the membership updates are done we need to give platform accesses to the user in different platforms. Here the flow basically splits into multiple sub-queues, which we will call child-queues.
 
-![parent-child](./img/parent-child.png)
-
-- This introduces complex logic, mainly because the
-
-  - parent queue have to start multiple child-jobs instead of one next job
-  - the child jobs may need info about their parents
-  - when all the child jobs are finished the next job should be started
-
-- We have multiple options how we want to implement the parent-child relationship
-- Based on the facts that
-
-  - we likely won't need complex, multi-level hierarchies
-  - the child jobs are atomic, so they won't have next queues, only the parent
-
-  I decided to store the child job's parameters and results in the parent job's state. **So the child jobs uses their parent's state, instead of having their own.**
-
-- A ParentWorker in addition to its regular Worker duties will
-
-  - save the child jobs' data to the state
-  - generate id for the child jobs and put them in the child queues
-
-- A ChildWorker will
-
-  - instead of fetching its own state, it will fetch its parent's state's field which stores the child job
-  - instead of saving the result to its own state, it will save the result to its parent's state
-  - instead of putting the jobId to a next queue, it will check how many child jobs are (of this child group) and how many of them are complete, and if all of them are complete, it will start the job
-
-- There is a chance we have to rethink this logic, because it might not be flexible enough, for other use-cases. WIP
+WIP
 
 ---
 
