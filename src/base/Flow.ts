@@ -148,7 +148,7 @@ export default class Flow<
     let jobs = jobStrings.map((j) => parseObject(j as any));
 
     if (resolveChildren) {
-      // yes, we need this many awaits here
+      // we need this many awaits here, because the async function is deeply nested
       jobs = await Promise.all(
         jobs.map(async (j) =>
           Object.fromEntries(
