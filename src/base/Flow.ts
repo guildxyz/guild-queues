@@ -12,9 +12,9 @@ import {
   BaseJob,
   ArrayElement,
 } from "./types";
-import { objectToStringEntries, parseObject } from "../utils";
+import { keyFormatter, objectToStringEntries, parseObject } from "../utils";
 import ParentWorker from "./ParentWorker";
-import { DEFAULT_KEY_EXPIRY, JOB_KEY_PREFIX } from "../static";
+import { DEFAULT_KEY_EXPIRY } from "../static";
 
 /**
  * Defines a sequence of Jobs / Queues / Workers
@@ -98,7 +98,7 @@ export default class Flow<
   public createJob = async (options: CreateJobOptions): Promise<string> => {
     // generate id for the job
     const jobId = uuidV4();
-    const jobKey = `${JOB_KEY_PREFIX}:${this.name}:${jobId}`;
+    const jobKey = keyFormatter.job(this.name, jobId);
 
     const transaction = this.redis
       .multi()
@@ -107,16 +107,23 @@ export default class Flow<
       .expire(jobKey, DEFAULT_KEY_EXPIRY);
 
     // add lookup keys
-    this.lookupAttributes.forEach((la) => {
-      if (typeof options[la] === "string" || typeof options[la] === "number") {
+    this.lookupAttributes.forEach((lookupAttribute) => {
+      if (
+        typeof options[lookupAttribute] === "string" ||
+        typeof options[lookupAttribute] === "number"
+      ) {
         // if attribute is primitive add one key
-        const key = `${JOB_KEY_PREFIX}:${this.name}:${la}:${options[la]}`;
+        const key = keyFormatter.lookup(
+          this.name,
+          lookupAttribute,
+          options[lookupAttribute]
+        );
         transaction.rPush(key, jobId);
         transaction.expire(key, DEFAULT_KEY_EXPIRY);
-      } else if (options[la] instanceof Array) {
+      } else if (options[lookupAttribute] instanceof Array) {
         // if it's an array, add one for each element
-        options[la].forEach((iterator: any) => {
-          const key = `${JOB_KEY_PREFIX}:${this.name}:${la}:${iterator}`;
+        options[lookupAttribute].forEach((iterator: any) => {
+          const key = keyFormatter.lookup(this.name, lookupAttribute, iterator);
           transaction.rPush(key, jobId);
           transaction.expire(key, DEFAULT_KEY_EXPIRY);
         });
@@ -141,7 +148,7 @@ export default class Flow<
   private getJobs = async (jobIds: string[], resolveChildren: boolean) => {
     const transaction = this.redis.multi();
     jobIds.forEach((jobId) => {
-      const jobKey = `${JOB_KEY_PREFIX}:${this.name}:${jobId}`;
+      const jobKey = keyFormatter.job(this.name, jobId);
       transaction.hGetAll(jobKey);
     });
     const jobStrings = await transaction.exec();
@@ -191,7 +198,7 @@ export default class Flow<
     }
 
     const jobIds = await this.redis.lRange(
-      `${JOB_KEY_PREFIX}:${this.name}:${keyName}:${value}`,
+      keyFormatter.lookup(this.name, keyName, value),
       0,
       -1
     );
@@ -273,7 +280,10 @@ export default class Flow<
     lockTime?: number,
     waitTimeout?: number
   ): Worker<QueueJob["params"], QueueJob["result"]> => {
-    const childQueueName = `${parentQueueName}:${childName}`;
+    const childQueueName = keyFormatter.childQueueName(
+      parentQueueName,
+      childName
+    );
     const queue = this.queues
       .find((q) => q.name === parentQueueName)
       .children.find((c) => c.name === childQueueName);

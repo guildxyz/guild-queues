@@ -1,6 +1,6 @@
 import { createClient } from "redis";
 import { FlowMonitorOptions, ILogger, RedisClient } from "./types";
-import { delay } from "../utils";
+import { delay, keyFormatter } from "../utils";
 
 export default class FlowMonitor {
   private flowName: string;
@@ -30,7 +30,7 @@ export default class FlowMonitor {
   }
 
   checkJobLock = async (queueName: string, jobId: string) => {
-    const lock = await this.redis.get(`lock:${queueName}:${jobId}`);
+    const lock = await this.redis.get(keyFormatter.lock(queueName, jobId));
     if (lock) {
       return true;
     }
@@ -41,9 +41,9 @@ export default class FlowMonitor {
       jobId,
     });
 
-    const jobKey = `job:${this.flowName}:${jobId}`;
+    const jobKey = keyFormatter.job(this.flowName, jobId);
     await Promise.all([
-      this.redis.lRem(`queue:${queueName}:processing`, 1, jobId),
+      this.redis.lRem(keyFormatter.processingQueueName(queueName), 1, jobId),
       this.redis.hSet(jobKey, "done", '"true"'),
       this.redis.hSet(jobKey, "failed", '"true"'),
       this.redis.hSet(
@@ -61,12 +61,12 @@ export default class FlowMonitor {
 
     await Promise.all([
       this.queueNames.map(async (queueName) => {
-        const waitingQueueName = `queue:${queueName}:waiting`;
+        const waitingQueueName = keyFormatter.waitingQueueName(queueName);
         const jobIds = await this.redis.lRange(waitingQueueName, 0, 1);
         newQueueJobs.set(waitingQueueName, jobIds);
       }),
       this.queueNames.map(async (queueName) => {
-        const processingQueueName = `queue:${queueName}:processing`;
+        const processingQueueName = keyFormatter.processingQueueName(queueName);
         const jobIds = await this.redis.lRange(processingQueueName, 0, 1);
 
         const validJobIds = (

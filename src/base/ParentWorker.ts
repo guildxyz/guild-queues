@@ -1,7 +1,7 @@
 /* eslint-disable no-await-in-loop */
 /* eslint-disable no-constant-condition */
 import { v4 as uuidV4 } from "uuid";
-import { delay, objectToStringEntries } from "../utils";
+import { delay, keyFormatter, objectToStringEntries } from "../utils";
 import Worker from "./Worker";
 import {
   BaseChildParam,
@@ -10,12 +10,7 @@ import {
   ParentWorkerOptions,
   WorkerFunction,
 } from "./types";
-import {
-  DEFAULT_KEY_EXPIRY,
-  DEFAULT_PARENT_CHECK_INTERVAL,
-  JOB_KEY_PREFIX,
-  QUEUE_KEY_PREFIX,
-} from "../static";
+import { DEFAULT_KEY_EXPIRY, DEFAULT_PARENT_CHECK_INTERVAL } from "../static";
 
 /**
  * Special worker which only creates child jobs and checks their status periodically
@@ -35,9 +30,9 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
     job
   ) => {
     // get the params and ids (if they exist) of the child jobs from redis
-    const jobKey = `${JOB_KEY_PREFIX}:${this.flowName}:${job.id}`;
-    const childParamsKey = `children:${this.queue.name}:params`;
-    const childJobsKey = `children:${this.queue.name}:jobs`;
+    const jobKey = keyFormatter.job(this.flowName, job.id);
+    const childParamsKey = keyFormatter.childrenParams(this.queue.name);
+    const childJobsKey = keyFormatter.childrenJobs(this.queue.name);
     const [paramsString, jobsString] = await Promise.all([
       this.nonBlockingRedis.hGet(jobKey, childParamsKey),
       this.nonBlockingRedis.hGet(jobKey, childJobsKey),
@@ -52,8 +47,8 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
     if (jobs.length === 0) {
       const transaction = this.nonBlockingRedis.multi();
       const newJobs: string[] = [];
-      params.forEach((p) => {
-        if (!p.childName) {
+      params.forEach((param) => {
+        if (!param.childName) {
           this.logger.warn("Child name is missing in child params", {
             queueName: this.queue.name,
             flowName: this.flowName,
@@ -64,19 +59,26 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
         }
 
         // generate child job id
-        const childId = uuidV4();
+        const childJobId = uuidV4();
 
-        const childJobKey = `${JOB_KEY_PREFIX}:${childGroup}:${p.childName}:${childId}`;
-        const childQueueKey = `${QUEUE_KEY_PREFIX}:${childGroup}:${p.childName}:waiting`;
+        const childJobKey = keyFormatter.childJob(
+          childGroup,
+          param.childName,
+          childJobId
+        );
+        const childQueueKey = keyFormatter.childWaitingQueueName(
+          childGroup,
+          param.childName
+        );
 
-        const childJob = p;
+        const childJob = param;
         delete childJob.childName;
 
         // create child job state
         transaction.hSet(childJobKey, objectToStringEntries(childJob));
         transaction.expire(childJobKey, DEFAULT_KEY_EXPIRY);
         // put it to the child queue
-        transaction.rPush(childQueueKey, childId);
+        transaction.rPush(childQueueKey, childJobId);
 
         // also store the child job keys for checking
         newJobs.push(childJobKey);

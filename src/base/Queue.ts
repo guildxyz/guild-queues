@@ -1,5 +1,5 @@
 /* eslint-disable no-use-before-define */
-import { LOCK_KEY_PREFIX, QUEUE_KEY_PREFIX } from "../static";
+import { keyFormatter } from "../utils";
 import { QueueOptions } from "./types";
 
 /**
@@ -32,11 +32,6 @@ export default class Queue {
   readonly processingQueueKey: string;
 
   /**
-   * Prefix of the lock key in redis
-   */
-  readonly lockKeyPrefix: string;
-
-  /**
    * Job attributes to query when fetching a job
    */
   readonly attributesToGet: string[];
@@ -56,18 +51,21 @@ export default class Queue {
     this.name = queueName;
     this.attributesToGet = attributesToGet || [];
 
-    this.waitingQueueKey = `${QUEUE_KEY_PREFIX}:${queueName}:waiting`;
-    this.processingQueueKey = `${QUEUE_KEY_PREFIX}:${queueName}:processing`;
-    this.lockKeyPrefix = `${LOCK_KEY_PREFIX}:${queueName}`;
+    this.waitingQueueKey = keyFormatter.waitingQueueName(queueName);
+    this.processingQueueKey = keyFormatter.processingQueueName(queueName);
 
     if (nextQueueName) {
       this.nextQueueName = nextQueueName;
-      this.nextQueueKey = `${QUEUE_KEY_PREFIX}:${nextQueueName}:waiting`;
+      this.nextQueueKey = keyFormatter.waitingQueueName(nextQueueName);
     }
 
     this.children =
       options.children?.map(
-        (c) => new Queue({ ...c, queueName: `${queueName}:${c.queueName}` })
+        (c) =>
+          new Queue({
+            ...c,
+            queueName: keyFormatter.childQueueName(queueName, c.queueName),
+          })
       ) || [];
   }
 }

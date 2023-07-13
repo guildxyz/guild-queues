@@ -12,13 +12,8 @@ import {
   BaseJobResult,
   AnyObject,
 } from "./types";
-import { hGetMore, hSetMore } from "../utils";
-import {
-  DEFAULT_LOCK_TIME,
-  DEFAULT_WAIT_TIMEOUT,
-  JOB_KEY_PREFIX,
-  QUEUE_KEY_PREFIX,
-} from "../static";
+import { hGetMore, hSetMore, keyFormatter } from "../utils";
+import { DEFAULT_LOCK_TIME, DEFAULT_WAIT_TIMEOUT } from "../static";
 
 /**
  * Defines a worker, the framework for job execution
@@ -132,13 +127,13 @@ export default class Worker<
     );
 
     // set a lock for the job with expiration
-    const itemLockKey = `${this.queue.lockKeyPrefix}:${jobId}`;
+    const itemLockKey = keyFormatter.lock(this.queue.name, jobId);
     await this.nonBlockingRedis.set(itemLockKey, this.id, {
       EX: this.lockTime,
     });
 
     // get the job attributes
-    const jobKey = `${JOB_KEY_PREFIX}:${this.flowName}:${jobId}`;
+    const jobKey = keyFormatter.job(this.flowName, jobId);
     const attributes = await hGetMore(
       this.nonBlockingRedis,
       jobKey,
@@ -168,9 +163,8 @@ export default class Worker<
       jobId,
     };
 
-    const lock = await this.nonBlockingRedis.get(
-      `lock:${this.queue.name}:${jobId}`
-    );
+    const itemLockKey = keyFormatter.lock(this.queue.name, jobId);
+    const lock = await this.nonBlockingRedis.get(itemLockKey);
     if (!lock) {
       this.logger.info(
         `No lock found for job, skipping complete`,
@@ -179,7 +173,7 @@ export default class Worker<
       return false;
     }
 
-    const jobKey = `${JOB_KEY_PREFIX}:${this.flowName}:${jobId}`;
+    const jobKey = keyFormatter.job(this.flowName, jobId);
     const { nextQueue } = result;
 
     const propertiesToSave: AnyObject = result;
@@ -189,9 +183,8 @@ export default class Worker<
     // save the result
     await hSetMore(this.nonBlockingRedis, jobKey, propertiesToSave);
 
-    const itemLockKey = `${this.queue.lockKeyPrefix}:${jobId}`;
     const nextQueueKey = nextQueue
-      ? `${QUEUE_KEY_PREFIX}:${nextQueue}:waiting`
+      ? keyFormatter.waitingQueueName(nextQueue)
       : this.queue.nextQueueKey;
 
     // start a redis transaction
@@ -347,7 +340,7 @@ export default class Worker<
       error,
     });
 
-    const jobKey = `${JOB_KEY_PREFIX}:${this.flowName}:${jobId}`;
+    const jobKey = keyFormatter.job(this.flowName, jobId);
     const propertiesToSave = {
       done: true,
       failed: true,

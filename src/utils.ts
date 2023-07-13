@@ -1,4 +1,5 @@
 import { AnyObject, RedisClient } from "./base/types";
+import { JOB_KEY_PREFIX, LOCK_KEY_PREFIX, QUEUE_KEY_PREFIX } from "./static";
 
 /**
  * Parse object retrieved by HGETs or HGETALL which consists of JSON values
@@ -65,3 +66,29 @@ export const delay = (ms: number): Promise<void> =>
   new Promise<void>((resolve) => {
     setTimeout(resolve, ms);
   });
+
+export const keyFormatter = {
+  job: (flowName: string, jobId: string) =>
+    `${JOB_KEY_PREFIX}:${flowName}:${jobId}`,
+  lookup: (
+    flowName: string,
+    lookupAttribute: string,
+    lookupAttributeValue: string | number
+  ) =>
+    `${JOB_KEY_PREFIX}:${flowName}:${lookupAttribute}:${lookupAttributeValue}`,
+  lock: (queueName: string, jobId: string) =>
+    `${LOCK_KEY_PREFIX}:${queueName}:${jobId}`,
+  childQueueName: (parentQueueName: string, childName: string) =>
+    `${parentQueueName}:${childName}`,
+  processingQueueName: (queueName: string) =>
+    `${QUEUE_KEY_PREFIX}:${queueName}:processing`,
+  waitingQueueName: (queueName: string) =>
+    `${QUEUE_KEY_PREFIX}:${queueName}:waiting`,
+  childrenParams: (parentQueueName: string) =>
+    `children:${parentQueueName}:params`,
+  childrenJobs: (parentQueueName: string) => `children:${parentQueueName}:jobs`,
+  childJob: (childGroup: string, childName: string, childJobId: string) =>
+    `${JOB_KEY_PREFIX}:${childGroup}:${childName}:${childJobId}`,
+  childWaitingQueueName: (childGroup: string, childName: string) =>
+    `${QUEUE_KEY_PREFIX}:${childGroup}:${childName}:waiting`,
+};
