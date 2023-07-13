@@ -163,6 +163,7 @@ export default class Worker<
       jobId,
     };
 
+    // if there's no lock for this job, skip the completion
     const itemLockKey = keyFormatter.lock(this.queue.name, jobId);
     const lock = await this.nonBlockingRedis.get(itemLockKey);
     if (!lock) {
@@ -332,6 +333,7 @@ export default class Worker<
    * @param error The error thrown by the workerFunction
    */
   private handleWorkerFunctionError = async (jobId: string, error: any) => {
+    // log the error
     this.logger.warn("WorkerFunction failed", {
       queueName: this.queue.name,
       flowName: this.flowName,
@@ -347,6 +349,7 @@ export default class Worker<
       failedErrorMsg: error.message,
     };
 
+    // mark the job as failed
     await hSetMore(this.nonBlockingRedis, jobKey, propertiesToSave).catch(
       (err) => {
         this.logger.error('Failed to set "failed" properties', {
@@ -360,6 +363,7 @@ export default class Worker<
       }
     );
 
+    // remove the job from the processing queue
     await this.nonBlockingRedis
       .lRem(this.queue.processingQueueKey, 1, jobId)
       .catch((err) => {
