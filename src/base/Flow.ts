@@ -191,7 +191,7 @@ export default class Flow<
     keyName: LookupAttributes,
     value: string | number,
     resolveChildren: boolean
-  ) => {
+  ): Promise<Record<string, any>[]> => {
     // typecheck (necessary because CreateFlowOptions extends AnyObject)
     if (typeof keyName !== "string") {
       return [];
@@ -202,7 +202,9 @@ export default class Flow<
       0,
       -1
     );
-    return this.getJobs(jobIds, resolveChildren);
+
+    const jobs = await this.getJobs(jobIds, resolveChildren);
+    return jobs.map((job, index) => ({ id: jobIds[index], ...job }));
   };
 
   /**

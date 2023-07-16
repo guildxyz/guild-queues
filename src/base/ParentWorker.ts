@@ -10,7 +10,11 @@ import {
   ParentWorkerOptions,
   WorkerFunction,
 } from "./types";
-import { DEFAULT_KEY_EXPIRY, DEFAULT_PARENT_CHECK_INTERVAL } from "../static";
+import {
+  DEFAULT_KEY_EXPIRY,
+  DEFAULT_LOG_META,
+  DEFAULT_PARENT_CHECK_INTERVAL,
+} from "../static";
 
 /**
  * Special worker which only creates child jobs and checks their status periodically
@@ -50,6 +54,7 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
       params.forEach((param) => {
         if (!param.childName) {
           this.logger.warn("Child name is missing in child params", {
+            ...DEFAULT_LOG_META,
             queueName: this.queue.name,
             flowName: this.flowName,
             workerId: this.id,

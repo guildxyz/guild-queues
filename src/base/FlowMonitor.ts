@@ -1,6 +1,7 @@
 import { createClient } from "redis";
 import { FlowMonitorOptions, ILogger, RedisClient } from "./types";
 import { delay, keyFormatter } from "../utils";
+import { DEFAULT_LOG_META } from "../static";
 
 /**
  * Defines a entity which periodically checks and stores the queues' content of a flow
@@ -39,7 +40,7 @@ export default class FlowMonitor {
   /**
    * Map which stores the queues and their content
    */
-  private queueJobs = new Map<string, string[]>();
+  public queueJobs = new Map<string, string[]>();
 
   constructor(options: FlowMonitorOptions) {
     const { redisClientOptions, flowName, queueNames, logger, intervalMs } =
@@ -59,13 +60,14 @@ export default class FlowMonitor {
    * @param jobId id of the job
    * @returns whether there's a lock associated with it
    */
-  checkJobLock = async (queueName: string, jobId: string) => {
+  private checkJobLock = async (queueName: string, jobId: string) => {
     const lock = await this.redis.get(keyFormatter.lock(queueName, jobId));
     if (lock) {
       return true;
     }
 
     this.logger.info("Job lock time exceeded", {
+      ...DEFAULT_LOG_META,
       queueName,
       flowName: this.flowName,
       jobId,
@@ -118,6 +120,9 @@ export default class FlowMonitor {
     ]);
 
     this.queueJobs = newQueueJobs;
+    this.logger.info("job lists updated", {
+      flowName: this.flowName,
+    });
   };
 
   /**

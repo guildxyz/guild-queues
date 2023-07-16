@@ -13,7 +13,11 @@ import {
   AnyObject,
 } from "./types";
 import { hGetMore, hSetMore, keyFormatter } from "../utils";
-import { DEFAULT_LOCK_TIME, DEFAULT_WAIT_TIMEOUT } from "../static";
+import {
+  DEFAULT_LOCK_TIME,
+  DEFAULT_LOG_META,
+  DEFAULT_WAIT_TIMEOUT,
+} from "../static";
 
 /**
  * Defines a worker, the framework for job execution
@@ -141,6 +145,7 @@ export default class Worker<
     );
 
     this.logger.info("Worker leased a job", {
+      ...DEFAULT_LOG_META,
       ...propertiesToLog,
       jobId,
     });
@@ -157,6 +162,7 @@ export default class Worker<
    */
   private async complete(jobId: string, result?: Result): Promise<boolean> {
     const propertiesToLog = {
+      ...DEFAULT_LOG_META,
       queueName: this.queue.name,
       flowName: this.flowName,
       workerId: this.id,
@@ -276,6 +282,7 @@ export default class Worker<
       }
     } catch (error) {
       this.logger.error("Worker died", {
+        ...DEFAULT_LOG_META,
         queueName: this.queue.name,
         flowName: this.flowName,
         workerId: this.id,
@@ -289,11 +296,14 @@ export default class Worker<
    * Start the job execution
    */
   public start = async () => {
-    this.logger.info("Starting worker", {
+    const propertiesToLog = {
+      ...DEFAULT_LOG_META,
       queueName: this.queue.name,
       flowName: this.flowName,
       workerId: this.id,
-    });
+    };
+
+    this.logger.info("Starting worker", propertiesToLog);
 
     // set state to to running
     this.status = "running";
@@ -301,21 +311,21 @@ export default class Worker<
     // start a loop for job execution
     this.eventLoop = this.eventLoopFunction();
 
-    this.logger.info("Worker started", {
-      queueName: this.queue.name,
-      flowName: this.flowName,
-      workerId: this.id,
-    });
+    this.logger.info("Worker started", propertiesToLog);
   };
 
   /**
    * Stop the job execution (the current job will be completed)
    */
   public stop = async () => {
-    this.logger.info("Stopping worker", {
+    const propertiesToLog = {
+      ...DEFAULT_LOG_META,
       queueName: this.queue.name,
+      flowName: this.flowName,
       workerId: this.id,
-    });
+    };
+
+    this.logger.info("Stopping worker", propertiesToLog);
 
     // notify scheduler to stop the execution
     this.status = "stopping";
@@ -324,7 +334,7 @@ export default class Worker<
     // mark status as stopped
     this.status = "stopped";
 
-    this.logger.info("Worker stopped");
+    this.logger.info("Worker stopped", propertiesToLog);
   };
 
   /**
@@ -333,12 +343,17 @@ export default class Worker<
    * @param error The error thrown by the workerFunction
    */
   private handleWorkerFunctionError = async (jobId: string, error: any) => {
-    // log the error
-    this.logger.warn("WorkerFunction failed", {
+    const propertiesToLog = {
+      ...DEFAULT_LOG_META,
       queueName: this.queue.name,
       flowName: this.flowName,
       workerId: this.id,
       jobId,
+    };
+
+    // log the error
+    this.logger.warn("WorkerFunction failed", {
+      ...propertiesToLog,
       error,
     });
 
@@ -353,10 +368,7 @@ export default class Worker<
     await hSetMore(this.nonBlockingRedis, jobKey, propertiesToSave).catch(
       (err) => {
         this.logger.error('Failed to set "failed" properties', {
-          queueName: this.queue.name,
-          flowName: this.flowName,
-          workerId: this.id,
-          jobId,
+          ...propertiesToLog,
           jobError: error.message,
           error: err,
         });
@@ -368,10 +380,7 @@ export default class Worker<
       .lRem(this.queue.processingQueueKey, 1, jobId)
       .catch((err) => {
         this.logger.error("Failed to remove failed job from processing queue", {
-          queueName: this.queue.name,
-          flowName: this.flowName,
-          workerId: this.id,
-          jobId,
+          ...propertiesToLog,
           jobError: error.message,
           error: err,
         });
