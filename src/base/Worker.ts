@@ -130,6 +130,11 @@ export default class Worker<
       timeout
     );
 
+    // skip the rest if no job is found due to timeout
+    if (!jobId) {
+      return null;
+    }
+
     // set a lock for the job with expiration
     const itemLockKey = keyFormatter.lock(this.queue.name, jobId);
     await this.nonBlockingRedis.set(itemLockKey, this.id, {
