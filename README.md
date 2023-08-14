@@ -223,7 +223,7 @@ Example: the access/join flow https://whimsical.com/access-queue-TGADUnGjaVLEV13
 
 #### UML class diagram
 
-![UML](./img/uml.png)
+![UML](./img/UML.png)
 
 ---
 
