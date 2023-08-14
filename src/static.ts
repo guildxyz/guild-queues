@@ -6,7 +6,7 @@ export const JOB_KEY_PREFIX = "job";
 // lease a job for this amount of time
 export const DEFAULT_LOCK_TIME = 60 * 3;
 // wait this amount of time for jobs before checking if the worker is still running
-export const DEFAULT_WAIT_TIMEOUT = 0;
+export const DEFAULT_WAIT_TIMEOUT = 3;
 // the parent checks if the child jobs are running this often
 export const DEFAULT_PARENT_CHECK_INTERVAL = 1000;
 // almost all of the keys should expire one day to prevent filling the redis with garbage
