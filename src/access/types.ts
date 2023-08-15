@@ -47,14 +47,14 @@ export type AccessResult = {
 };
 
 /**
- * Params of the preparation queue
+ * Params of the access-preparation queue
  */
-export type PreparationParams = AccessParams & { recheckAccess: boolean };
+export type AccessPreparationParams = AccessParams & { recheckAccess: boolean };
 
 /**
- * Result of the preparation queue
+ * Result of the access-preparation queue
  */
-export type PreparationResult = AccessResult & {
+export type AccessPreparationResult = AccessResult & {
   nextQueue: "access-check" | "update-membership";
 };
 
@@ -160,13 +160,13 @@ export type PrepareManageRewardResult = AccessResult & {
 };
 
 /**
- * Preparation job definition
+ * AccessPreparation job definition
  */
-export type PreparationJob = {
-  queueName: "preparation";
+export type AccessPreparationJob = {
+  queueName: "access-preparation";
   children: [];
-  params: PreparationParams;
-  result: PreparationResult;
+  params: AccessPreparationParams;
+  result: AccessPreparationResult;
 };
 
 /**
@@ -228,7 +228,7 @@ export type AccessResultJob = {
  * Names of the queues in the access flow
  */
 export type AccessQueueJob =
-  | PreparationJob
+  | AccessPreparationJob
   | AccessCheckJob
   | UpdateMembershipJob
   | PrepareManageRewardJob

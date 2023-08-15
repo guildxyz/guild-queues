@@ -24,7 +24,7 @@ const createAccessFlow = (options: AccessFlowOptions) => {
   // queues of the AccessFlow
   const queueOptions: QueueOptions[] = [
     {
-      queueName: "preparation",
+      queueName: "access-preparation",
       attributesToGet: [...defaultAttributesToGet, "recheckAccess"],
     },
     {

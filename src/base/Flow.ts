@@ -208,80 +208,94 @@ export default class Flow<
   };
 
   /**
-   * Create a worker for a queue
+   * Create workers for a queue
    * @param queueName Name of the queue the worker will work on
    * @param workerFunction The function that will be executed on the jobs
+   * @param count The number of workers to create
    * @param lockTime Expiration time of a job execution
    * @param waitTimeout Maximum number of seconds to wait for job before checking status
-   * @returns The worker
+   * @returns The workers
    */
-  public createWorker = <QueueJob extends FlowJob = FlowJob>(
+  public createWorkers = <QueueJob extends FlowJob = FlowJob>(
     queueName: QueueJob["queueName"],
     workerFunction: WorkerFunction<QueueJob["params"], QueueJob["result"]>,
+    count: number,
     lockTime?: number,
     waitTimeout?: number
-  ): Worker<QueueJob["params"], QueueJob["result"]> => {
+  ): Worker<QueueJob["params"], QueueJob["result"]>[] => {
     const queue = this.queues.find((q) => q.name === queueName);
 
-    const worker = new Worker<QueueJob["params"], QueueJob["result"]>({
-      flowName: this.name,
-      workerFunction,
-      queue,
-      lockTime,
-      waitTimeout,
-      redisClientOptions: this.redisClientOptions,
-      logger: this.logger,
-    });
+    const createdWorkers: Worker<QueueJob["params"], QueueJob["result"]>[] = [];
+    for (let i = 0; i < count; i += 1) {
+      const worker = new Worker<QueueJob["params"], QueueJob["result"]>({
+        flowName: this.name,
+        workerFunction,
+        queue,
+        lockTime,
+        waitTimeout,
+        redisClientOptions: this.redisClientOptions,
+        logger: this.logger,
+      });
+      createdWorkers.push(worker);
+    }
 
-    this.workers.push(worker);
+    this.workers.push(...createdWorkers);
 
-    return worker;
+    return createdWorkers;
   };
 
   /**
-   * Create a parent worker for a queue which has children
+   * Create parent workers for a queue which has children
    * @param queueName Name of the queue the worker will work on
+   * @param count The number of workers to create
    * @param lockTime Expiration time of a job execution
    * @param waitTimeout Maximum number of seconds to wait for job before checking status
-   * @returns The parent worker
+   * @returns The parent workers
    */
-  public createParentWorker = <QueueJob extends FlowJob = FlowJob>(
+  public createParentWorkers = <QueueJob extends FlowJob = FlowJob>(
     queueName: QueueJob["queueName"],
+    count: number,
     lockTime?: number,
     waitTimeout?: number
-  ): ParentWorker => {
+  ): ParentWorker[] => {
     const queue = this.queues.find((q) => q.name === queueName);
 
-    const worker = new ParentWorker({
-      flowName: this.name,
-      queue,
-      lockTime,
-      waitTimeout,
-      redisClientOptions: this.redisClientOptions,
-      logger: this.logger,
-    });
+    const createdWorkers: ParentWorker[] = [];
+    for (let i = 0; i < count; i += 1) {
+      const worker = new ParentWorker({
+        flowName: this.name,
+        queue,
+        lockTime,
+        waitTimeout,
+        redisClientOptions: this.redisClientOptions,
+        logger: this.logger,
+      });
+      createdWorkers.push(worker);
+    }
 
-    this.workers.push(worker);
+    this.workers.push(...createdWorkers);
 
-    return worker;
+    return createdWorkers;
   };
 
   /**
-   * Create a worker for a child queue
+   * Create workers for a child queue
    * @param parentQueueName Name of the parent queue
    * @param childName Name of the child within the parent (parentQueueName+childName=childQueueName)
    * @param workerFunction The function that will be executed on the jobs
+   * @param count The number of workers to create
    * @param lockTime Expiration time of a job execution
    * @param waitTimeout Maximum number of seconds to wait for job before checking status
-   * @returns The worker
+   * @returns The workers
    */
-  public createChildWorker = <QueueJob extends FlowJob = FlowJob>(
+  public createChildWorkers = <QueueJob extends FlowJob = FlowJob>(
     parentQueueName: QueueJob["queueName"],
     childName: ArrayElement<QueueJob["children"]>["queueName"],
     workerFunction: WorkerFunction<QueueJob["params"], QueueJob["result"]>,
+    count: number,
     lockTime?: number,
     waitTimeout?: number
-  ): Worker<QueueJob["params"], QueueJob["result"]> => {
+  ): Worker<QueueJob["params"], QueueJob["result"]>[] => {
     const childQueueName = keyFormatter.childQueueName(
       parentQueueName,
       childName
@@ -290,19 +304,23 @@ export default class Flow<
       .find((q) => q.name === parentQueueName)
       .children.find((c) => c.name === childQueueName);
 
-    const worker = new Worker<QueueJob["params"], QueueJob["result"]>({
-      flowName: childQueueName,
-      workerFunction,
-      queue,
-      lockTime,
-      waitTimeout,
-      redisClientOptions: this.redisClientOptions,
-      logger: this.logger,
-    });
+    const createdWorkers: Worker<QueueJob["params"], QueueJob["result"]>[] = [];
+    for (let i = 0; i < count; i += 1) {
+      const worker = new Worker<QueueJob["params"], QueueJob["result"]>({
+        flowName: childQueueName,
+        workerFunction,
+        queue,
+        lockTime,
+        waitTimeout,
+        redisClientOptions: this.redisClientOptions,
+        logger: this.logger,
+      });
+      createdWorkers.push(worker);
+    }
 
-    this.workers.push(worker);
+    this.workers.push(...createdWorkers);
 
-    return worker;
+    return createdWorkers;
   };
 
   /**

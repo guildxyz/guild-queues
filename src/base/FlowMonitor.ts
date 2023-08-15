@@ -25,7 +25,7 @@ export default class FlowMonitor {
   /**
    * Names of the flow's queues
    */
-  private queueNames: string[];
+  public queueNames: string[];
 
   /**
    * Update interval in milliseconds
@@ -97,12 +97,12 @@ export default class FlowMonitor {
     await Promise.all([
       this.queueNames.map(async (queueName) => {
         const waitingQueueName = keyFormatter.waitingQueueName(queueName);
-        const jobIds = await this.redis.lRange(waitingQueueName, 0, 1);
+        const jobIds = await this.redis.lRange(waitingQueueName, 0, -1);
         newQueueJobs.set(waitingQueueName, jobIds);
       }),
       this.queueNames.map(async (queueName) => {
         const processingQueueName = keyFormatter.processingQueueName(queueName);
-        const jobIds = await this.redis.lRange(processingQueueName, 0, 1);
+        const jobIds = await this.redis.lRange(processingQueueName, 0, -1);
 
         const validJobIds = (
           await Promise.all(
