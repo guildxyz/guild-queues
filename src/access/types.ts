@@ -160,6 +160,14 @@ export type PrepareManageRewardResult = AccessResult & {
 };
 
 /**
+ * Result of the access-result queue
+ */
+export type AccessResultResult = AccessResult & {
+  nextQueue?: never;
+  done: true;
+};
+
+/**
  * AccessPreparation job definition
  */
 export type AccessPreparationJob = {
@@ -220,8 +228,8 @@ export type ManageRewardJob = {
 export type AccessResultJob = {
   queueName: "access-result";
   children: [];
-  params: AccessCheckParams;
-  result: AccessCheckResult;
+  params: BaseJobParams;
+  result: AccessResultResult;
 };
 
 /**

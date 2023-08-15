@@ -48,6 +48,7 @@ export const hGetMore = async (
 
   const attributes = await Promise.all(
     fields.map(async (f) => {
+      // TODO: use HMGET?
       const value = await redis.hGet(key, f);
       const parsedValue = JSON.parse(value);
       return [f, parsedValue];

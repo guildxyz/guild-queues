@@ -139,6 +139,44 @@ export default class Flow<
     return jobId;
   };
 
+  public deleteJob = async (jobId: string) => {
+    // fetch the job
+    const jobKey = keyFormatter.job(this.name, jobId);
+    const jobRaw = await this.redis.hGetAll(jobKey);
+
+    if (!jobRaw) {
+      throw new Error("Job to delete does not exist.");
+    }
+
+    const job = parseObject(jobRaw);
+
+    const transaction = this.redis.multi();
+    this.lookupAttributes.forEach((lookupAttribute) => {
+      if (
+        typeof job[lookupAttribute] === "string" ||
+        typeof job[lookupAttribute] === "number"
+      ) {
+        // if attribute is primitive remote the key
+        const key = keyFormatter.lookup(
+          this.name,
+          lookupAttribute,
+          job[lookupAttribute]
+        );
+        transaction.lRem(key, 1, jobId);
+      } else if (job[lookupAttribute] instanceof Array) {
+        // if it's an array, remote the lookup key for each element
+        job[lookupAttribute].forEach((iterator: any) => {
+          const key = keyFormatter.lookup(this.name, lookupAttribute, iterator);
+          transaction.lRem(key, 1, jobId);
+        });
+      }
+    });
+
+    transaction.del(jobKey);
+
+    return transaction.exec();
+  };
+
   /**
    * Get jobs by ids
    * @param jobIds job ids
