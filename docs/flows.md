@@ -74,7 +74,7 @@ the job fetching is done by the [lookup attributes](./lookup_attributes.md)
 
 ### method
 
-- `Flow.createWorker` or `Flow.createParentWorker` or `Flow.createChildWorker`
+- `Flow.createWorkers` or `Flow.createParentWorkers` or `Flow.createChildWorkers`
 
 ### flow
 
