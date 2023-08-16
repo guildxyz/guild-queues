@@ -139,7 +139,7 @@ export default class Flow<
     return jobId;
   };
 
-  public deleteJob = async (jobId: string) => {
+  public deleteJob = async (jobId: string): Promise<number[]> => {
     // fetch the job
     const jobKey = keyFormatter.job(this.name, jobId);
     const jobRaw = await this.redis.hGetAll(jobKey);
@@ -174,7 +174,7 @@ export default class Flow<
 
     transaction.del(jobKey);
 
-    return transaction.exec();
+    return transaction.exec() as Promise<number[]>; // necessary, unless throws: "The inferred type of 'deleteJob' cannot be named without a reference to"
   };
 
   /**
