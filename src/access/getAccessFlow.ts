@@ -25,7 +25,7 @@ const createAccessFlow = (options: AccessFlowOptions) => {
   const queueOptions: QueueOptions[] = [
     {
       queueName: "access-preparation",
-      attributesToGet: [...defaultAttributesToGet, "recheckAccess"],
+      attributesToGet: [...defaultAttributesToGet, "recheckAccess", "guildId"],
     },
     {
       queueName: "access-check",

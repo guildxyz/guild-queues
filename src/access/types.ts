@@ -49,7 +49,10 @@ export type AccessResult = {
 /**
  * Params of the access-preparation queue
  */
-export type AccessPreparationParams = AccessParams & { recheckAccess: boolean };
+export type AccessPreparationParams = AccessParams & {
+  guildId: number;
+  recheckAccess: boolean;
+};
 
 /**
  * Result of the access-preparation queue
@@ -65,6 +68,13 @@ export type AccessCheckParams = AccessParams & {
   updateMemberships: boolean;
 };
 
+type RequirementError = {
+  requirementId: number;
+  msg: string;
+  errorType: string;
+  subType?: string;
+};
+
 /**
  * Result of the access-check queue
  */
@@ -74,9 +84,10 @@ export type AccessCheckResult = AccessResult & {
     access: boolean;
     requirements: {
       requirementId: number;
-      access: true;
-      amount: number;
+      access: boolean;
+      amount?: number;
     }[];
+    errors?: RequirementError[];
   }[];
 };
 
