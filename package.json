@@ -67,5 +67,18 @@
       "dotenv/config"
     ],
     "testTimeout": 10000
-  }
+  },
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agoraxyz/guild-queues.git"
+  },
+  "author": "Devidxyz",
+  "bugs": {
+    "url": "https://github.com/agoraxyz/guild-queues/issues"
+  },
+  "homepage": "https://github.com/agoraxyz/guild-queues#readme"
 }
