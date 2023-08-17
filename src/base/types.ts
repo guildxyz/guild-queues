@@ -29,6 +29,11 @@ export interface IStartable {
   stop(): void;
 }
 
+/**
+ * Can bind and provide correlation id
+ */
+export type ICorrelator = { withId(id: any, work: any): any; getId: () => any };
+
 /* ========== Aliases ========== */
 
 /**
@@ -152,6 +157,7 @@ export type WorkerOptions<
    * Options to initialize the redis clients
    */
   redisClientOptions: RedisClientOptions;
+  correlator?: ICorrelator;
 };
 
 /**
@@ -191,6 +197,7 @@ export type FlowOptions = {
    * Attributes which can be used for lookup a job
    */
   lookupAttributes: string[];
+  correlator: ICorrelator;
 };
 
 export type FlowMonitorOptions = {

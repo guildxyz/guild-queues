@@ -11,6 +11,7 @@ import {
   IStartable,
   BaseJob,
   ArrayElement,
+  ICorrelator,
 } from "./types";
 import { keyFormatter, objectToStringEntries, parseObject } from "../utils";
 import ParentWorker from "./ParentWorker";
@@ -60,6 +61,11 @@ export default class Flow<
   private readonly redis: RedisClient;
 
   /**
+   * Provided correlator
+   */
+  private readonly correlator: ICorrelator;
+
+  /**
    * Set the basic options, initialize queues and redis client
    * @param options parameters of AccessFlow
    */
@@ -72,6 +78,7 @@ export default class Flow<
     this.lookupAttributes = lookupAttributes;
     this.redisClientOptions = redisClientOptions;
     this.redis = createClient(redisClientOptions);
+    this.correlator = options.correlator;
 
     this.queues = queueOptions.map((qo) => new Queue(qo));
   }
@@ -273,6 +280,7 @@ export default class Flow<
         waitTimeout,
         redisClientOptions: this.redisClientOptions,
         logger: this.logger,
+        correlator: this.correlator,
       });
       createdWorkers.push(worker);
     }

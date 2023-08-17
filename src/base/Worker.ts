@@ -11,6 +11,7 @@ import {
   IStartable,
   BaseJobResult,
   AnyObject,
+  ICorrelator,
 } from "./types";
 import { hGetMore, hSetMore, keyFormatter } from "../utils";
 import {
@@ -83,6 +84,11 @@ export default class Worker<
   public status: "ready" | "running" | "stopping" | "stopped";
 
   /**
+   * Provided correlator
+   */
+  private readonly correlator: ICorrelator;
+
+  /**
    * Set the properties, generate workerId, initialize redis clients, etc.
    * @param options
    */
@@ -95,6 +101,7 @@ export default class Worker<
       redisClientOptions,
       lockTime,
       waitTimeout,
+      correlator,
     } = options;
 
     this.queue = queue;
@@ -103,6 +110,7 @@ export default class Worker<
     this.lockTime = lockTime ?? DEFAULT_LOCK_TIME;
     this.waitingTimeout = waitTimeout ?? DEFAULT_WAIT_TIMEOUT;
     this.workerFunction = workerFunction;
+    this.correlator = correlator;
     this.blockingRedis = createClient(redisClientOptions);
     this.nonBlockingRedis = createClient(redisClientOptions);
     this.id = uuidV4();
@@ -268,22 +276,25 @@ export default class Worker<
   private eventLoopFunction = async () => {
     try {
       while (this.status === "running") {
-        const job = await this.lease(this.waitingTimeout);
+        // generate UUID and pass create a correlator context
+        await this.correlator.withId(uuidV4(), async () => {
+          const job = await this.lease(this.waitingTimeout);
 
-        // if there's a job execute it
-        if (job) {
-          let result: Result;
-          try {
-            result = await this.workerFunction(job);
-          } catch (workerFunctionError: any) {
-            await this.handleWorkerFunctionError(job.id, workerFunctionError);
-          }
+          // if there's a job execute it
+          if (job) {
+            let result: Result;
+            try {
+              result = await this.workerFunction(job);
+            } catch (workerFunctionError: any) {
+              await this.handleWorkerFunctionError(job.id, workerFunctionError);
+            }
 
-          if (result) {
-            await this.complete(job.id, result);
+            if (result) {
+              await this.complete(job.id, result);
+            }
           }
-        }
-        // else check if worker is still running and retry
+          // else check if worker is still running and retry
+        });
       }
     } catch (error) {
       this.logger.error("Worker died", {

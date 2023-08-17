@@ -4,6 +4,7 @@ import {
   ILogger,
   BaseJobParams,
   BaseJobResult,
+  ICorrelator,
 } from "../base/types";
 
 /**
@@ -27,6 +28,7 @@ export type CreateAccessJobOptions = {
 export type AccessFlowOptions = {
   redisClientOptions: RedisClientOptions;
   logger: ILogger;
+  correlator: ICorrelator;
 };
 
 /**
