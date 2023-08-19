@@ -93,6 +93,8 @@ handleWorkerFunctionError --> check
     - `HSET job:<flowName>:<jobId> done true`
   - set the `failed` property to "true"
     - `HSET job:<flowName>:<jobId> failed true`
+  - set the `failedQueue` property to current queue's name
+    - `HSET job:<flowName>:<jobId> failedQueue <queueName>`
   - set the `failedErrorMsg` property to the error message
     - `HSET job:<flowName>:<jobId> failedErrorMsg <errorMsg>`
   - remove the job from the processing queue

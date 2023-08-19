@@ -157,7 +157,7 @@ export type WorkerOptions<
    * Options to initialize the redis clients
    */
   redisClientOptions: RedisClientOptions;
-  correlator?: ICorrelator;
+  correlator: ICorrelator;
 };
 
 /**

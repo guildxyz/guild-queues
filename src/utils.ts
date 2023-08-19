@@ -17,7 +17,9 @@ export const parseObject = (obj: { [key: string]: string }) =>
  * @returns Array of string-string key-value pairs
  */
 export const objectToStringEntries = (obj: any): [string, string][] =>
-  Object.entries(obj).map<[string, string]>(([k, v]) => [k, JSON.stringify(v)]);
+  Object.entries(obj)
+    .map<[string, string]>(([k, v]) => [k, JSON.stringify(v)])
+    .filter(([, v]) => v !== null && v !== undefined);
 
 /**
  * Add object's properties to Redis hash as fields

@@ -377,6 +377,7 @@ export default class Worker<
     const propertiesToSave = {
       done: true,
       failed: true,
+      failedQueue: this.queue.name,
       failedErrorMsg: error.message,
     };
 

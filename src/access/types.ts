@@ -34,16 +34,17 @@ export type AccessFlowOptions = {
 /**
  * A basic job of the access flow
  */
-export type AccessParams = {
+export type AccessFlowParams = {
   id: string;
   userId: number;
+  guildId: number;
   roleIds: number[];
 };
 
 /**
  * A basic result of the access flow
  */
-export type AccessResult = {
+export type AccessFlowResult = {
   // eslint-disable-next-line no-use-before-define
   nextQueue?: AccessQueueJob["queueName"];
 };
@@ -51,23 +52,39 @@ export type AccessResult = {
 /**
  * Params of the access-preparation queue
  */
-export type AccessPreparationParams = AccessParams & {
-  guildId: number;
+export type AccessPreparationParams = AccessFlowParams & {
   recheckAccess: boolean;
+};
+
+/**
+ * Basic properties of requirementCheck
+ */
+export type AccessCheckChildParams = {
+  childName: "requirements";
+  userId: number;
+  requirementId: number;
 };
 
 /**
  * Result of the access-preparation queue
  */
-export type AccessPreparationResult = AccessResult & {
-  nextQueue: "access-check" | "update-membership";
-};
+export type AccessPreparationResult = AccessFlowResult &
+  (
+    | {
+        nextQueue: "access-check";
+        "children:access-check:params": AccessCheckChildParams[];
+      }
+    | {
+        nextQueue: "update-membership";
+      }
+  );
 
 /**
  * Params of the access-check queue
  */
-export type AccessCheckParams = AccessParams & {
-  updateMemberships: boolean;
+export type AccessCheckParams = BaseJobParams & {
+  userId: number;
+  requirementId: number;
 };
 
 type RequirementError = {
@@ -80,32 +97,47 @@ type RequirementError = {
 /**
  * Result of the access-check queue
  */
-export type AccessCheckResult = AccessResult & {
-  accessCheckResult: {
-    roleId: number;
-    access: boolean;
-    requirements: {
-      requirementId: number;
-      access: boolean;
-      amount?: number;
-    }[];
-    errors?: RequirementError[];
-  }[];
+export type AccessCheckResult = AccessFlowResult & {
+  done: true;
+  requirementId: number;
+  access: boolean;
+  amount?: number;
+  error?: RequirementError;
+};
+
+/**
+ * Params of the access-logic queue
+ */
+export type AccessLogicParams = AccessFlowParams & {
+  "children:access-check:jobs": string[];
+  updateMemberships: boolean;
+};
+
+export type RoleAccess = {
+  roleId: number;
+  access: boolean;
+};
+
+/**
+ * Result of the access-logic queue
+ */
+export type AccessLogicResult = AccessFlowResult & {
+  roleAccesses: RoleAccess[];
+  nextQueue: "update-membership" | "access-result";
 };
 
 /**
  * Params of the update-membership queue
  */
-export type UpdateMembershipParams = AccessParams &
-  AccessCheckResult & {
-    guildId: number;
-    manageRewards: boolean;
-  };
+export type UpdateMembershipParams = AccessFlowParams & {
+  roleAccesses: RoleAccess[];
+  manageRewards: boolean;
+};
 
 /**
  * Result of the update-membership queue
  */
-export type UpdateMembershipResult = AccessResult & {
+export type UpdateMembershipResult = AccessFlowResult & {
   updateMembershipResult: {
     newMembershipRoleIds: number[];
     lostMembershipRoleIds: number[];
@@ -157,9 +189,8 @@ export type ManageRewardResult = BaseJobResult & {
 /**
  * Params of the prepare-manage-reward queue
  */
-export type PrepareManageRewardParams = AccessParams &
+export type PrepareManageRewardParams = AccessFlowParams &
   UpdateMembershipResult & {
-    guildId: number;
     forceRewardActions: boolean;
     onlyForThisPlatform?: string;
   };
@@ -167,7 +198,7 @@ export type PrepareManageRewardParams = AccessParams &
 /**
  * Result of the prepare-manage-reward queue
  */
-export type PrepareManageRewardResult = AccessResult & {
+export type PrepareManageRewardResult = AccessFlowResult & {
   nextQueue?: never;
   "children:manage-reward:params": ManageRewardChildParams[];
 };
@@ -175,7 +206,7 @@ export type PrepareManageRewardResult = AccessResult & {
 /**
  * Result of the access-result queue
  */
-export type AccessResultResult = AccessResult & {
+export type AccessResultResult = AccessFlowResult & {
   nextQueue?: never;
   done: true;
 };
@@ -195,8 +226,19 @@ export type AccessPreparationJob = {
  */
 export type AccessCheckJob = {
   queueName: "access-check";
+  children: [{ queueName: "requirements" }];
   params: AccessCheckParams;
   result: AccessCheckResult;
+};
+
+/**
+ * AccessLogic job definition
+ */
+export type AccessLogicJob = {
+  queueName: "access-logic";
+  children: [];
+  params: AccessLogicParams;
+  result: AccessLogicResult;
 };
 
 /**
@@ -251,6 +293,7 @@ export type AccessResultJob = {
 export type AccessQueueJob =
   | AccessPreparationJob
   | AccessCheckJob
+  | AccessLogicJob
   | UpdateMembershipJob
   | PrepareManageRewardJob
   | ManageRewardJob

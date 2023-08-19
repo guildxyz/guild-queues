@@ -13,7 +13,7 @@ import {
  */
 const createAccessFlow = (options: AccessFlowOptions) => {
   // most of the access flow jobs need the userId and roleId
-  const defaultAttributesToGet = ["userId", "roleIds"];
+  const defaultAttributesToGet = ["userId", "guildId", "roleIds"];
   // all manage reward child jobs only need the manageRewardAction attribute
   const manageRewardAttributeToGet = ["manageRewardAction"];
   // we want to fetch the access flow jobs by userId, roleId, guildId, in the queues
@@ -29,13 +29,28 @@ const createAccessFlow = (options: AccessFlowOptions) => {
     },
     {
       queueName: "access-check",
-      attributesToGet: [...defaultAttributesToGet, "updateMemberships"],
+      attributesToGet: [...defaultAttributesToGet, "requirementIds"],
+      children: [
+        {
+          queueName: "requirements",
+          attributesToGet: ["userId", "requirementId"],
+        },
+      ],
+      nextQueueName: "access-logic",
+    },
+    {
+      queueName: "access-logic",
+      attributesToGet: [
+        ...defaultAttributesToGet,
+        "children:access-check:jobs",
+        "updateMemberships",
+      ],
     },
     {
       queueName: "update-membership",
       attributesToGet: [
         ...defaultAttributesToGet,
-        "accessCheckResult",
+        "roleAccesses",
         "manageRewards",
       ],
     },

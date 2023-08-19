@@ -315,6 +315,7 @@ export default class Flow<
         waitTimeout,
         redisClientOptions: this.redisClientOptions,
         logger: this.logger,
+        correlator: this.correlator,
       });
       createdWorkers.push(worker);
     }
@@ -360,6 +361,7 @@ export default class Flow<
         waitTimeout,
         redisClientOptions: this.redisClientOptions,
         logger: this.logger,
+        correlator: this.correlator,
       });
       createdWorkers.push(worker);
     }
