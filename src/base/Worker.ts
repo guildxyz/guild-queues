@@ -274,8 +274,8 @@ export default class Worker<
    * Loop for executing jobs until the Worker is running
    */
   private eventLoopFunction = async () => {
-    try {
-      while (this.status === "running") {
+    while (this.status === "running") {
+      try {
         // generate UUID and pass create a correlator context
         await this.correlator.withId(uuidV4(), async () => {
           const job = await this.lease(this.waitingTimeout);
@@ -295,16 +295,15 @@ export default class Worker<
           }
           // else check if worker is still running and retry
         });
+      } catch (error) {
+        this.logger.error("Event loop uncaught error", {
+          ...DEFAULT_LOG_META,
+          queueName: this.queue.name,
+          flowName: this.flowName,
+          workerId: this.id,
+          error,
+        });
       }
-    } catch (error) {
-      this.logger.error("Worker died", {
-        ...DEFAULT_LOG_META,
-        queueName: this.queue.name,
-        flowName: this.flowName,
-        workerId: this.id,
-        error,
-      });
-      // TODO: call disconnect here?
     }
   };
 
