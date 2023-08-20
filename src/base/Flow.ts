@@ -190,28 +190,61 @@ export default class Flow<
    * @param resolveChildren whether include child jobs (not just their keys)
    * @returns jobs
    */
-  private getJobs = async (jobIds: string[], resolveChildren: boolean) => {
+  private getJobs = async (
+    flowName: string,
+    jobIds: string[],
+    resolveChildren: boolean
+  ) => {
     const transaction = this.redis.multi();
     jobIds.forEach((jobId) => {
-      const jobKey = keyFormatter.job(this.name, jobId);
+      const jobKey = keyFormatter.job(flowName, jobId);
       transaction.hGetAll(jobKey);
     });
-    const jobStrings = await transaction.exec();
-    let jobs = jobStrings.map((j) => parseObject(j as any));
+    const rawJobs = await transaction.exec();
+    let jobs: Record<string, any>[] = rawJobs.map((rawJob, index) => ({
+      id: jobIds[index],
+      ...parseObject(rawJob as any),
+    }));
 
     if (resolveChildren) {
       // we need this many awaits here, because the async function is deeply nested
       jobs = await Promise.all(
+        // map all jobs
         jobs.map(async (j) =>
+          // restore job object from property key-value pairs
           Object.fromEntries(
+            // await getting children from redis
             await Promise.all(
+              // job to key value pairs to check for children jobs keys
               Object.entries(j).map(async ([key, value]) => {
+                // check if the key is a child jobs key
                 if (key.match(/^children:.*:jobs$/) && value instanceof Array) {
-                  const children = (
-                    await Promise.all(
-                      value.map(async (v) => this.redis.hGetAll(v))
+                  const parentQueueChildIdPairs = value.map((v) => {
+                    // the child job's "flow" the middle part is the parent queue's name
+                    const parentQueueName = v.split(":").slice(1, -1).join(":");
+                    // we need the last part, the uuid without the prefixes
+                    const childId = v.split(":").pop();
+
+                    return { parentQueueName, childId };
+                  });
+
+                  const childIdsByParentQueueName = new Map<string, string[]>();
+                  parentQueueChildIdPairs.forEach(
+                    ({ parentQueueName, childId }) => {
+                      const childIds =
+                        childIdsByParentQueueName.get(parentQueueName) || [];
+                      childIds.push(childId);
+                      childIdsByParentQueueName.set(parentQueueName, childIds);
+                    }
+                  );
+
+                  const children = await Promise.all(
+                    Array.from(childIdsByParentQueueName.entries()).map(
+                      ([parentQueueName, childIds]) =>
+                        this.getJobs(parentQueueName, childIds, true)
                     )
-                  ).map((c) => parseObject(c));
+                  ).then((x) => x.flat());
+
                   return [key, children];
                 }
                 return [key, value];
@@ -248,8 +281,7 @@ export default class Flow<
       -1
     );
 
-    const jobs = await this.getJobs(jobIds, resolveChildren);
-    return jobs.map((job, index) => ({ id: jobIds[index], ...job }));
+    return this.getJobs(this.name, jobIds, resolveChildren);
   };
 
   /**
