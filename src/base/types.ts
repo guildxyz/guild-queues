@@ -146,11 +146,11 @@ export type WorkerOptions<
    */
   logger: ILogger;
   /**
-   * Expiration time of lock keys
+   * Expiration time of lock keys (seconds)
    */
   lockTime?: number;
   /**
-   * Maximum number of seconds to wait for job before checking status
+   * Maximum number of seconds to wait for job before checking status (seconds)
    */
   waitTimeout?: number;
   /**
