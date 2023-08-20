@@ -69,12 +69,12 @@ export default class Worker<
   private eventLoop: Promise<void>;
 
   /**
-   * Expiration time of lock keys
+   * Expiration time of lock keys (seconds)
    */
   public lockTime: number;
 
   /**
-   * Maximum number of seconds to wait for job before checking status
+   * Maximum number of seconds to wait for job before checking status (seconds)
    */
   public waitingTimeout: number;
 

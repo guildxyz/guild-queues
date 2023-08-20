@@ -257,8 +257,8 @@ export default class Flow<
    * @param queueName Name of the queue the worker will work on
    * @param workerFunction The function that will be executed on the jobs
    * @param count The number of workers to create
-   * @param lockTime Expiration time of a job execution
-   * @param waitTimeout Maximum number of seconds to wait for job before checking status
+   * @param lockTime Expiration time of a job execution (seconds)
+   * @param waitTimeout Maximum number of seconds to wait for job before checking status (seconds)
    * @returns The workers
    */
   public createWorkers = <QueueJob extends FlowJob = FlowJob>(
@@ -294,8 +294,8 @@ export default class Flow<
    * Create parent workers for a queue which has children
    * @param queueName Name of the queue the worker will work on
    * @param count The number of workers to create
-   * @param lockTime Expiration time of a job execution
-   * @param waitTimeout Maximum number of seconds to wait for job before checking status
+   * @param lockTime Expiration time of a job execution (seconds)
+   * @param waitTimeout Maximum number of seconds to wait for job before checking status (seconds)
    * @returns The parent workers
    */
   public createParentWorkers = <QueueJob extends FlowJob = FlowJob>(
@@ -331,8 +331,8 @@ export default class Flow<
    * @param childName Name of the child within the parent (parentQueueName+childName=childQueueName)
    * @param workerFunction The function that will be executed on the jobs
    * @param count The number of workers to create
-   * @param lockTime Expiration time of a job execution
-   * @param waitTimeout Maximum number of seconds to wait for job before checking status
+   * @param lockTime Expiration time of a job execution (seconds)
+   * @param waitTimeout Maximum number of seconds to wait for job before checking status (seconds)
    * @returns The workers
    */
   public createChildWorkers = <QueueJob extends FlowJob = FlowJob>(
