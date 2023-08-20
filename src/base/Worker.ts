@@ -144,9 +144,13 @@ export default class Worker<
     }
 
     // set a lock for the job with expiration
+    // the extra one second helps avoiding the inconsistency when
+    // 1) the workerFunction is finished 1ms before the deadline but no complete is called yet
+    // 2) the queue-monitor sees that the lock is expired but the job is still there, so marks it as failed
+    // 3) the complete marks the job as succeed and done
     const itemLockKey = keyFormatter.lock(this.queue.name, jobId);
     await this.nonBlockingRedis.set(itemLockKey, this.id, {
-      EX: this.lockTime,
+      EX: this.lockTime + 1,
     });
 
     // get the job attributes
@@ -182,16 +186,7 @@ export default class Worker<
       jobId,
     };
 
-    // if there's no lock for this job, skip the completion
     const itemLockKey = keyFormatter.lock(this.queue.name, jobId);
-    const lock = await this.nonBlockingRedis.get(itemLockKey);
-    if (!lock) {
-      this.logger.info(
-        `No lock found for job, skipping complete`,
-        propertiesToLog
-      );
-      return false;
-    }
 
     const jobKey = keyFormatter.job(this.flowName, jobId);
     const { nextQueue } = result;
@@ -271,6 +266,40 @@ export default class Worker<
   };
 
   /**
+   * Executes a job with a timeout (lockTime)
+   * @param job Job to execute
+   * @returns result of the job
+   */
+  private executeWithDeadline = async (job: Params): Promise<Result> => {
+    let timeout: ReturnType<typeof setTimeout>;
+    const timeoutPromise = new Promise<any>((_, reject) => {
+      timeout = setTimeout(() => {
+        this.logger.warn("Execution timeout exceeded", {
+          ...DEFAULT_LOG_META,
+          queueName: this.queue.name,
+          flowName: this.flowName,
+          workerId: this.id,
+          lockTime: this.lockTime,
+        });
+        reject(
+          new Error(`Execution timeout of ${this.lockTime} seconds exceeded`)
+        );
+      }, this.lockTime * 1000);
+    });
+
+    const result: Result = await Promise.race([
+      timeoutPromise,
+      this.workerFunction(job),
+    ]);
+
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+
+    return result;
+  };
+
+  /**
    * Loop for executing jobs until the Worker is running
    */
   private eventLoopFunction = async () => {
@@ -284,7 +313,7 @@ export default class Worker<
           if (job) {
             let result: Result;
             try {
-              result = await this.workerFunction(job);
+              result = await this.executeWithDeadline(job);
             } catch (workerFunctionError: any) {
               await this.handleWorkerFunctionError(job.id, workerFunctionError);
             }
