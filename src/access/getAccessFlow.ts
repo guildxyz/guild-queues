@@ -32,7 +32,7 @@ const createAccessFlow = (options: AccessFlowOptions) => {
       attributesToGet: [...defaultAttributesToGet, "requirementIds"],
       children: [
         {
-          queueName: "requirements",
+          queueName: "requirement",
           attributesToGet: ["userId", "requirementId"],
         },
       ],
