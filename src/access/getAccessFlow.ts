@@ -18,7 +18,7 @@ const createAccessFlow = (options: AccessFlowOptions) => {
   const manageRewardAttributeToGet = ["manageRewardAction"];
   // we want to fetch the access flow jobs by userId, roleId, guildId, in the queues
   const lookupAttributes = ["userId", "roleIds", "guildId"];
-  // we also need the define the type for the flow
+  // we also need to define the type for the flow
   type LookupAttributes = "guildId" | "roleIds" | "userId";
 
   // queues of the AccessFlow
