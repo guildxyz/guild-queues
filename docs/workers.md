@@ -76,7 +76,7 @@ handleWorkerFunctionError --> check
         - `RPUSH queue:<nextQueue>:waiting <jobId>`
       - the job's id is removed from the current queue
         - `LREM queue:<thisQueue>:processing 1 <jobId>`
-      - finally the lock is deleted\
+      - finally the lock is deleted
         - `DEL lock:<thisQueue>:<jobId>`
     - finally there's an error checking & fixing mechanism
       - both `LREM` and `DEL` returns the number of removed elements
