@@ -5,7 +5,7 @@ import {
   BaseJobParams,
   BaseJobResult,
   ICorrelator,
-} from "../base/types";
+} from "../../base/types";
 
 /**
  * Options to create flows in the AccessFlow

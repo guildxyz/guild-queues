@@ -1,5 +1,5 @@
-import Flow from "../base/Flow";
-import { QueueOptions } from "../base/types";
+import Flow from "../../base/Flow";
+import { QueueOptions } from "../../base/types";
 import {
   AccessFlowOptions,
   AccessQueueJob,

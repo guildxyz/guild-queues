@@ -4,5 +4,5 @@ export { default as Worker } from "./base/Worker";
 export { default as FlowMonitor } from "./base/FlowMonitor";
 export * from "./base/types";
 
-export { default as createAccessFlow } from "./access/getAccessFlow";
-export * from "./access/types";
+export { default as createAccessFlow } from "./flows/access/getAccessFlow";
+export * from "./flows/access/types";
