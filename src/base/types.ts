@@ -102,7 +102,7 @@ export type WorkerFunction<
 /**
  * Options for creating a queue
  */
-export type QueueOptions = {
+export type QueueOptions<NextQueueName extends string = string> = {
   /**
    * Name of the queue
    */
@@ -110,7 +110,7 @@ export type QueueOptions = {
   /**
    * Name of the queue to put the next job after the current one is finished
    */
-  nextQueueName?: string;
+  nextQueueName?: NextQueueName;
   /**
    * Default attributes (of the flow) necessary to execute the job
    */

@@ -46,7 +46,7 @@ export type AccessFlowParams = {
  */
 export type AccessFlowResult = {
   // eslint-disable-next-line no-use-before-define
-  nextQueue?: AccessQueueJob["queueName"];
+  nextQueue?: AccessFlowJob["queueName"];
 };
 
 /**
@@ -87,7 +87,7 @@ export type AccessCheckParams = BaseJobParams & {
   requirementId: number;
 };
 
-type RequirementError = {
+export type RequirementError = {
   requirementId: number;
   msg: string;
   errorType: string;
@@ -102,6 +102,7 @@ export type AccessCheckResult = AccessFlowResult & {
   requirementId: number;
   access: boolean;
   amount?: number;
+  warning?: RequirementError;
   error?: RequirementError;
 };
 
@@ -290,7 +291,7 @@ export type AccessResultJob = {
 /**
  * Names of the queues in the access flow
  */
-export type AccessQueueJob =
+export type AccessFlowJob =
   | AccessPreparationJob
   | AccessCheckJob
   | AccessLogicJob

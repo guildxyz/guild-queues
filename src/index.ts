@@ -6,3 +6,6 @@ export * from "./base/types";
 
 export { default as createAccessFlow } from "./flows/access/getAccessFlow";
 export * from "./flows/access/types";
+
+export { default as createStatusUpdateFlow } from "./flows/statusUpdate/getStatusUpdateFlow";
+export * from "./flows/statusUpdate/types";

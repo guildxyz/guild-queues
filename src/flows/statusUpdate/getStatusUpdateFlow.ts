@@ -1,64 +1,54 @@
 import Flow from "../../base/Flow";
 import { QueueOptions } from "../../base/types";
 import {
-  AccessFlowOptions,
-  AccessFlowJob,
-  CreateAccessJobOptions,
+  CreateStatusUpdateJobOptions,
+  StatusUpdateFlowOptions,
+  StatusUpdateJob,
 } from "./types";
 
-/**
- * Create a Flow instance for the access flow
- * @param options Access flow options
- * @returns Flow instance
- */
-const createAccessFlow = (options: AccessFlowOptions) => {
-  // most of the access flow jobs need the userId and roleId
-  const defaultAttributesToGet = ["userId", "guildId", "roleIds"];
-  // all manage reward child jobs only need the manageRewardAction attribute
+const createStatusUpdateFlow = (options: StatusUpdateFlowOptions) => {
+  const defaultAttributesToGet = ["userIds", "guildId", "roleIds"];
   const manageRewardAttributeToGet = ["manageRewardAction"];
-  // we want to fetch the access flow jobs by userId, roleId, guildId, in the queues
-  const lookupAttributes = ["userId", "roleIds", "guildId"];
-  // we also need to define the type for the flow
-  type LookupAttributes = "userId" | "roleIds" | "guildId";
+  const lookupAttributes = ["userIds", "roleIds", "guildId"];
+  type LookupAttributes = "userIds" | "roleIds" | "guildId";
 
-  // queues of the AccessFlow
-  const queueOptions: QueueOptions[] = [
+  const queueOptions: QueueOptions<StatusUpdateJob["queueName"]>[] = [
     {
-      queueName: "access-preparation",
+      queueName: "status-update-preparation",
       attributesToGet: [...defaultAttributesToGet, "recheckAccess", "guildId"],
     },
     {
-      queueName: "access-check",
-      attributesToGet: [...defaultAttributesToGet, "requirementIds"],
+      queueName: "bulk-access-check",
+      attributesToGet: [...defaultAttributesToGet],
       children: [
         {
           queueName: "requirement",
-          attributesToGet: ["userId", "requirementId"],
+          attributesToGet: ["userIds", "requirementId"],
         },
       ],
-      nextQueueName: "access-logic",
+      nextQueueName: "bulk-access-logic",
     },
     {
-      queueName: "access-logic",
+      queueName: "bulk-access-logic",
       attributesToGet: [
         ...defaultAttributesToGet,
-        "children:access-check:jobs",
+        "children:bulk-access-check:jobs",
         "updateMemberships",
       ],
     },
     {
-      queueName: "update-membership",
+      queueName: "bulk-update-membership",
       attributesToGet: [
         ...defaultAttributesToGet,
-        "roleAccesses",
+        "userRoleAccesses",
         "manageRewards",
       ],
     },
     {
-      queueName: "prepare-manage-reward",
+      queueName: "bulk-prepare-manage-reward",
       attributesToGet: [
         ...defaultAttributesToGet,
-        "updateMembershipResult",
+        "bulkUpdateMembershipResult",
         "guildId",
         "forceRewardActions",
         "onlyForThisPlatform",
@@ -72,7 +62,7 @@ const createAccessFlow = (options: AccessFlowOptions) => {
         "children:manage-reward:params",
         "children:manage-reward:jobs",
       ],
-      nextQueueName: "access-result",
+      nextQueueName: "status-update-result",
       children: [
         {
           queueName: "discord",
@@ -97,18 +87,21 @@ const createAccessFlow = (options: AccessFlowOptions) => {
       ],
     },
     {
-      queueName: "access-result",
+      queueName: "status-update-result",
       attributesToGet: defaultAttributesToGet,
     },
   ];
 
-  // create the flow and return it
-  return new Flow<AccessFlowJob, CreateAccessJobOptions, LookupAttributes>({
+  return new Flow<
+    StatusUpdateJob,
+    CreateStatusUpdateJobOptions,
+    LookupAttributes
+  >({
     ...options,
-    name: "access",
+    name: "status-update",
     queueOptions,
     lookupAttributes,
   });
 };
 
-export default createAccessFlow;
+export default createStatusUpdateFlow;
