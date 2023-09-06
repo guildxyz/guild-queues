@@ -8,7 +8,8 @@ import {
   AccessResultResult,
   CreateAccessJobOptions,
   ManageRewardChildParams,
-  ManageRewardJob,
+  ManageRewardParams,
+  ManageRewardResult,
   RequirementError,
 } from "../access/types";
 
@@ -106,7 +107,7 @@ export type BulkPrepareManageRewardParams = StatusUpdateFlowParams &
 
 export type BulkPrepareManageRewardResult = StatusUpdateFlowResult & {
   nextQueue?: never;
-  "children:manage-reward:params": ManageRewardChildParams[];
+  "children:status-update-manage-reward:params": ManageRewardChildParams[];
 };
 
 export type StatusUpdateResultResult = AccessResultResult;
@@ -148,6 +149,29 @@ export type BulkPrepareManageRewardJob = {
   result: BulkPrepareManageRewardResult;
 };
 
+export type StatusUpdateManageRewardJob = {
+  queueName: "status-update-manage-reward";
+  children: [
+    {
+      queueName: "discord";
+    },
+    {
+      queueName: "telegram";
+    },
+    {
+      queueName: "github";
+    },
+    {
+      queueName: "google";
+    },
+    {
+      queueName: "nft";
+    }
+  ];
+  params: ManageRewardParams;
+  result: ManageRewardResult;
+};
+
 export type StatusUpdateResultJob = {
   queueName: "status-update-result";
   children: [];
@@ -161,5 +185,5 @@ export type StatusUpdateJob =
   | BulkAccessLogicJob
   | BulkUpdateMembershipJob
   | BulkPrepareManageRewardJob
-  | ManageRewardJob
+  | StatusUpdateManageRewardJob
   | StatusUpdateResultJob;

@@ -53,14 +53,14 @@ const createStatusUpdateFlow = (options: StatusUpdateFlowOptions) => {
         "forceRewardActions",
         "onlyForThisPlatform",
       ],
-      nextQueueName: "manage-reward",
+      nextQueueName: "status-update-manage-reward",
     },
     {
-      queueName: "manage-reward",
+      queueName: "status-update-manage-reward",
       attributesToGet: [
         ...defaultAttributesToGet,
-        "children:manage-reward:params",
-        "children:manage-reward:jobs",
+        "children:status-update-manage-reward:params",
+        "children:status-update-manage-reward:jobs",
       ],
       nextQueueName: "status-update-result",
       children: [
