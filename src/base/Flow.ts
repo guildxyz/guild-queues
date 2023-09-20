@@ -1,5 +1,5 @@
-import { v4 as uuidV4 } from "uuid";
 import { RedisClientOptions, createClient } from "redis";
+import { uuidv7 } from "uuidv7";
 import Queue from "./Queue";
 import Worker from "./Worker";
 import {
@@ -13,9 +13,14 @@ import {
   ArrayElement,
   ICorrelator,
 } from "./types";
-import { keyFormatter, objectToStringEntries, parseObject } from "../utils";
+import {
+  getLookupKeys,
+  keyFormatter,
+  objectToStringEntries,
+  parseObject,
+} from "../utils";
 import ParentWorker from "./ParentWorker";
-import { DEFAULT_KEY_EXPIRY } from "../static";
+import { DEFAULT_KEY_EXPIRY_SEC } from "../static";
 
 /**
  * Defines a sequence of Jobs / Queues / Workers
@@ -104,37 +109,26 @@ export default class Flow<
    */
   public createJob = async (options: CreateJobOptions): Promise<string> => {
     // generate id for the job
-    const jobId = uuidV4();
+    const jobId = uuidv7();
     const jobKey = keyFormatter.job(this.name, jobId);
 
     const transaction = this.redis
       .multi()
       // create the job with the parameters
-      .hSet(jobKey, objectToStringEntries(options))
-      .expire(jobKey, DEFAULT_KEY_EXPIRY);
+      .hSet(
+        jobKey,
+        objectToStringEntries({
+          ...options,
+          correlationId: this.correlator.getId(),
+        })
+      )
+      .expire(jobKey, DEFAULT_KEY_EXPIRY_SEC);
 
     // add lookup keys
-    this.lookupAttributes.forEach((lookupAttribute) => {
-      if (
-        typeof options[lookupAttribute] === "string" ||
-        typeof options[lookupAttribute] === "number"
-      ) {
-        // if attribute is primitive add one key
-        const key = keyFormatter.lookup(
-          this.name,
-          lookupAttribute,
-          options[lookupAttribute]
-        );
-        transaction.rPush(key, jobId);
-        transaction.expire(key, DEFAULT_KEY_EXPIRY);
-      } else if (options[lookupAttribute] instanceof Array) {
-        // if it's an array, add one for each element
-        options[lookupAttribute].forEach((iterator: any) => {
-          const key = keyFormatter.lookup(this.name, lookupAttribute, iterator);
-          transaction.rPush(key, jobId);
-          transaction.expire(key, DEFAULT_KEY_EXPIRY);
-        });
-      }
+    const lookupKeys = getLookupKeys(this.name, options, this.lookupAttributes);
+    lookupKeys.forEach((lookupKey) => {
+      transaction.rPush(lookupKey, jobId);
+      transaction.expire(lookupKey, DEFAULT_KEY_EXPIRY_SEC);
     });
 
     // put to the first queue
@@ -158,25 +152,9 @@ export default class Flow<
     const job = parseObject(jobRaw);
 
     const transaction = this.redis.multi();
-    this.lookupAttributes.forEach((lookupAttribute) => {
-      if (
-        typeof job[lookupAttribute] === "string" ||
-        typeof job[lookupAttribute] === "number"
-      ) {
-        // if attribute is primitive remote the key
-        const key = keyFormatter.lookup(
-          this.name,
-          lookupAttribute,
-          job[lookupAttribute]
-        );
-        transaction.lRem(key, 1, jobId);
-      } else if (job[lookupAttribute] instanceof Array) {
-        // if it's an array, remote the lookup key for each element
-        job[lookupAttribute].forEach((iterator: any) => {
-          const key = keyFormatter.lookup(this.name, lookupAttribute, iterator);
-          transaction.lRem(key, 1, jobId);
-        });
-      }
+    const lookupKeys = getLookupKeys(this.name, job, this.lookupAttributes);
+    lookupKeys.forEach((lookupKey) => {
+      transaction.lRem(lookupKey, 1, jobId);
     });
 
     transaction.del(jobKey);
@@ -206,6 +184,7 @@ export default class Flow<
       ...parseObject(rawJob as any),
     }));
 
+    // add more variables, separate code ***clean code***
     if (resolveChildren) {
       // we need this many awaits here, because the async function is deeply nested
       jobs = await Promise.all(
@@ -289,16 +268,16 @@ export default class Flow<
    * @param queueName Name of the queue the worker will work on
    * @param workerFunction The function that will be executed on the jobs
    * @param count The number of workers to create
-   * @param lockTime Expiration time of a job execution (seconds)
-   * @param waitTimeout Maximum number of seconds to wait for job before checking status (seconds)
+   * @param lockTimeSec Expiration time of a job execution (seconds)
+   * @param blockTimeoutSec Maximum number of seconds to wait for job before checking status (seconds)
    * @returns The workers
    */
   public createWorkers = <QueueJob extends FlowJob = FlowJob>(
     queueName: QueueJob["queueName"],
     workerFunction: WorkerFunction<QueueJob["params"], QueueJob["result"]>,
     count: number,
-    lockTime?: number,
-    waitTimeout?: number
+    lockTimeSec?: number,
+    blockTimeoutSec?: number
   ): Worker<QueueJob["params"], QueueJob["result"]>[] => {
     const queue = this.queues.find((q) => q.name === queueName);
 
@@ -308,8 +287,8 @@ export default class Flow<
         flowName: this.name,
         workerFunction,
         queue,
-        lockTime,
-        waitTimeout,
+        lockTimeSec,
+        blockTimeoutSec,
         redisClientOptions: this.redisClientOptions,
         logger: this.logger,
         correlator: this.correlator,
@@ -326,15 +305,15 @@ export default class Flow<
    * Create parent workers for a queue which has children
    * @param queueName Name of the queue the worker will work on
    * @param count The number of workers to create
-   * @param lockTime Expiration time of a job execution (seconds)
-   * @param waitTimeout Maximum number of seconds to wait for job before checking status (seconds)
+   * @param lockTimeSec Expiration time of a job execution (seconds)
+   * @param blockTimeoutSec Maximum number of seconds to wait for job before checking status (seconds)
    * @returns The parent workers
    */
   public createParentWorkers = <QueueJob extends FlowJob = FlowJob>(
     queueName: QueueJob["queueName"],
     count: number,
-    lockTime?: number,
-    waitTimeout?: number
+    lockTimeSec?: number,
+    blockTimeoutSec?: number
   ): ParentWorker[] => {
     const queue = this.queues.find((q) => q.name === queueName);
 
@@ -343,8 +322,8 @@ export default class Flow<
       const worker = new ParentWorker({
         flowName: this.name,
         queue,
-        lockTime,
-        waitTimeout,
+        lockTimeSec,
+        blockTimeoutSec,
         redisClientOptions: this.redisClientOptions,
         logger: this.logger,
         correlator: this.correlator,
@@ -363,8 +342,8 @@ export default class Flow<
    * @param childName Name of the child within the parent (parentQueueName+childName=childQueueName)
    * @param workerFunction The function that will be executed on the jobs
    * @param count The number of workers to create
-   * @param lockTime Expiration time of a job execution (seconds)
-   * @param waitTimeout Maximum number of seconds to wait for job before checking status (seconds)
+   * @param lockTimeSec Expiration time of a job execution (seconds)
+   * @param blockTimeoutSec Maximum number of seconds to wait for job before checking status (seconds)
    * @returns The workers
    */
   public createChildWorkers = <QueueJob extends FlowJob = FlowJob>(
@@ -372,8 +351,8 @@ export default class Flow<
     childName: ArrayElement<QueueJob["children"]>["queueName"],
     workerFunction: WorkerFunction<QueueJob["params"], QueueJob["result"]>,
     count: number,
-    lockTime?: number,
-    waitTimeout?: number
+    lockTimeSec?: number,
+    blockTimeoutSec?: number
   ): Worker<QueueJob["params"], QueueJob["result"]>[] => {
     const childQueueName = keyFormatter.childQueueName(
       parentQueueName,
@@ -389,8 +368,8 @@ export default class Flow<
         flowName: childQueueName,
         workerFunction,
         queue,
-        lockTime,
-        waitTimeout,
+        lockTimeSec,
+        blockTimeoutSec,
         redisClientOptions: this.redisClientOptions,
         logger: this.logger,
         correlator: this.correlator,

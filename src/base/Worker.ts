@@ -1,6 +1,6 @@
 /* eslint-disable no-await-in-loop */
-import { v4 as uuidV4 } from "uuid";
 import { createClient } from "redis";
+import { uuidv7 } from "uuidv7";
 import Queue from "./Queue";
 import {
   BaseJobParams,
@@ -15,9 +15,10 @@ import {
 } from "./types";
 import { hGetMore, hSetMore, keyFormatter } from "../utils";
 import {
-  DEFAULT_LOCK_TIME,
+  DEFAULT_LOCK_SEC,
   DEFAULT_LOG_META,
-  DEFAULT_WAIT_TIMEOUT,
+  DEFAULT_WAIT_TIMEOUT_SEC,
+  EXTRA_LOCK_SEC,
 } from "../static";
 
 /**
@@ -71,12 +72,12 @@ export default class Worker<
   /**
    * Expiration time of lock keys (seconds)
    */
-  public lockTime: number;
+  public lockTimeSec: number;
 
   /**
    * Maximum number of seconds to wait for job before checking status (seconds)
    */
-  public waitingTimeout: number;
+  public blockTimeoutSec: number; // poll period ? block timeout ?
 
   /**
    * Status of the worker
@@ -99,21 +100,21 @@ export default class Worker<
       workerFunction,
       logger,
       redisClientOptions,
-      lockTime,
-      waitTimeout,
+      lockTimeSec,
+      blockTimeoutSec,
       correlator,
     } = options;
 
     this.queue = queue;
     this.flowName = flowName;
     this.logger = logger;
-    this.lockTime = lockTime ?? DEFAULT_LOCK_TIME;
-    this.waitingTimeout = waitTimeout ?? DEFAULT_WAIT_TIMEOUT;
+    this.lockTimeSec = lockTimeSec ?? DEFAULT_LOCK_SEC;
+    this.blockTimeoutSec = blockTimeoutSec ?? DEFAULT_WAIT_TIMEOUT_SEC;
     this.workerFunction = workerFunction;
     this.correlator = correlator;
     this.blockingRedis = createClient(redisClientOptions);
     this.nonBlockingRedis = createClient(redisClientOptions);
-    this.id = uuidV4();
+    this.id = uuidv7();
     this.status = "ready";
   }
 
@@ -150,7 +151,7 @@ export default class Worker<
     // 3) the complete marks the job as succeed and done
     const itemLockKey = keyFormatter.lock(this.queue.name, jobId);
     await this.nonBlockingRedis.set(itemLockKey, this.id, {
-      EX: this.lockTime + 1,
+      EX: this.lockTimeSec + EXTRA_LOCK_SEC,
     });
 
     // get the job attributes
@@ -211,21 +212,35 @@ export default class Worker<
     }
 
     // remove it from the current one
-    transaction.lRem(this.queue.processingQueueKey, 1, jobId).del(itemLockKey);
+    transaction.lRem(this.queue.processingQueueKey, 1, jobId);
 
-    const [_, removedItemCount, removedLockCount] = await transaction.exec();
+    // remove the lock too
+    transaction.del(itemLockKey);
 
-    // check if the job was remove successfully from the current queue
+    // get the processing queues length
+    transaction.lLen(this.queue.processingQueueKey);
+
+    const [
+      nextQueueLength,
+      removedItemCount,
+      removedLockCount,
+      processingQueueLength,
+    ] = await transaction.exec();
+
+    // check if the job was removed successfully from the current queue
     if (+removedItemCount > 0) {
       this.logger.info("Worker completed a job", {
         ...propertiesToLog,
+        nextQueueLength,
         removedLockCount,
+        processingQueueLength,
       });
       return true;
     }
 
     // else: the item was not present in the current queue (inconsistency)
     // try to abort it: remove from the next queue (if there's a next queue)
+    // this can happen in the key was deleted from redis
     let abortSuccessful: boolean;
     if (nextQueueKey) {
       const abortResult = await this.nonBlockingRedis.lRem(
@@ -266,7 +281,7 @@ export default class Worker<
   };
 
   /**
-   * Executes a job with a timeout (lockTime)
+   * Executes a job with a timeout lockTimeSec)
    * @param job Job to execute
    * @returns result of the job
    */
@@ -279,12 +294,12 @@ export default class Worker<
           queueName: this.queue.name,
           flowName: this.flowName,
           workerId: this.id,
-          lockTime: this.lockTime,
+          lockTimeSec: this.lockTimeSec,
         });
         reject(
-          new Error(`Execution timeout of ${this.lockTime} seconds exceeded`)
+          new Error(`Execution timeout of ${this.lockTimeSec} seconds exceeded`)
         );
-      }, this.lockTime * 1000);
+      }, this.lockTimeSec * 1000);
     });
 
     const result: Result = await Promise.race([
@@ -306,12 +321,14 @@ export default class Worker<
     while (this.status === "running") {
       try {
         // generate UUID and pass create a correlator context
-        await this.correlator.withId(uuidV4(), async () => {
-          const job = await this.lease(this.waitingTimeout);
+        await this.correlator.withId(uuidv7(), async () => {
+          const job = await this.lease(this.blockTimeoutSec);
 
           // if there's a job execute it
           if (job) {
             let result: Result;
+
+            // ths isolates error boundaries between "consumer-error" and "queue-lib-error"
             try {
               result = await this.executeWithDeadline(job);
             } catch (workerFunctionError: any) {

@@ -7,7 +7,12 @@ import {
 } from "./types";
 
 const createStatusUpdateFlow = (options: StatusUpdateFlowOptions) => {
-  const defaultAttributesToGet = ["userIds", "guildId", "roleIds"];
+  const defaultAttributesToGet = [
+    "userIds",
+    "guildId",
+    "roleIds",
+    "correlationId",
+  ];
   const manageRewardAttributeToGet = ["manageRewardAction"];
   const lookupAttributes = ["userIds", "roleIds", "guildId"];
   type LookupAttributes = "userIds" | "roleIds" | "guildId";

@@ -95,3 +95,33 @@ export const keyFormatter = {
   childWaitingQueueName: (childGroup: string, childName: string) =>
     `${QUEUE_KEY_PREFIX}:${childGroup}:${childName}:waiting`,
 };
+
+export const getLookupKeys = (
+  flowName: string,
+  createJobOptions: AnyObject,
+  lookupAttributes: string[]
+) => {
+  const lookupKeys: string[] = [];
+  lookupAttributes.forEach((lookupAttribute) => {
+    if (
+      typeof createJobOptions[lookupAttribute] === "string" ||
+      typeof createJobOptions[lookupAttribute] === "number"
+    ) {
+      // if attribute is primitive add it
+      const key = keyFormatter.lookup(
+        flowName,
+        lookupAttribute,
+        createJobOptions[lookupAttribute]
+      );
+      lookupKeys.push(key);
+    } else if (createJobOptions[lookupAttribute] instanceof Array) {
+      // extra check for elements
+      // if it's an array, add for each element
+      createJobOptions[lookupAttribute].forEach((element: any) => {
+        const key = keyFormatter.lookup(flowName, lookupAttribute, element);
+        lookupKeys.push(key);
+      });
+    }
+  });
+  return lookupKeys;
+};

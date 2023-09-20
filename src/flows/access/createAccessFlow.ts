@@ -13,7 +13,12 @@ import {
  */
 const createAccessFlow = (options: AccessFlowOptions) => {
   // most of the access flow jobs need the userId and roleId
-  const defaultAttributesToGet = ["userId", "guildId", "roleIds"];
+  const defaultAttributesToGet = [
+    "userId",
+    "guildId",
+    "roleIds",
+    "correlationId",
+  ];
   // all manage reward child jobs only need the manageRewardAction attribute
   const manageRewardAttributeToGet = ["manageRewardAction"];
   // we want to fetch the access flow jobs by userId, roleId, guildId, in the queues

@@ -1,6 +1,6 @@
 /* eslint-disable no-await-in-loop */
 /* eslint-disable no-constant-condition */
-import { v4 as uuidV4 } from "uuid";
+import { uuidv7 } from "uuidv7";
 import { delay, keyFormatter, objectToStringEntries } from "../utils";
 import Worker from "./Worker";
 import {
@@ -11,9 +11,9 @@ import {
   WorkerFunction,
 } from "./types";
 import {
-  DEFAULT_KEY_EXPIRY,
+  DEFAULT_KEY_EXPIRY_SEC,
   DEFAULT_LOG_META,
-  DEFAULT_PARENT_CHECK_INTERVAL,
+  DEFAULT_PARENT_CHECK_INTERVAL_MS,
 } from "../static";
 
 /**
@@ -64,7 +64,7 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
         }
 
         // generate child job id
-        const childJobId = uuidV4();
+        const childJobId = uuidv7();
 
         const childJobKey = keyFormatter.childJob(
           childGroup,
@@ -81,7 +81,7 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
 
         // create child job state
         transaction.hSet(childJobKey, objectToStringEntries(childJob));
-        transaction.expire(childJobKey, DEFAULT_KEY_EXPIRY);
+        transaction.expire(childJobKey, DEFAULT_KEY_EXPIRY_SEC);
         // put it to the child queue
         transaction.rPush(childQueueKey, childJobId);
 
@@ -129,6 +129,7 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
       ...options,
     });
     this.workerFunction = this.parentWorkerFunction; // can't pass this to the constructor: 'this' is not allowed before 'super()'
-    this.checkInterval = options.checkInterval || DEFAULT_PARENT_CHECK_INTERVAL;
+    this.checkInterval =
+      options.checkInterval || DEFAULT_PARENT_CHECK_INTERVAL_MS;
   }
 }

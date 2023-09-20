@@ -148,11 +148,11 @@ export type WorkerOptions<
   /**
    * Expiration time of lock keys (seconds)
    */
-  lockTime?: number;
+  lockTimeSec?: number;
   /**
    * Maximum number of seconds to wait for job before checking status (seconds)
    */
-  waitTimeout?: number;
+  blockTimeoutSec?: number;
   /**
    * Options to initialize the redis clients
    */

@@ -48,7 +48,7 @@ handleWorkerFunctionError --> check
 - now a lock key is inserted for this queue and job (with a TTL), which means the job is under execution
   - after the lock key expires the job is considered failed (worker timeout)
   - this makes sure that no job can get stuck in the queues "forever"
-  - `SET lock:<flowName>:<jobId> <workerId> EX <lockTime>`
+  - `SET lock:<flowName>:<jobId> <workerId> EX <lockTimeSec>`
 - finally the job's relevant properties in this queue (defined in Queue.attributesToGet) are fetched by its ids
   - `HGET job:<flowName>:<jobId> property1 property2`
 

@@ -12,7 +12,7 @@ export default class Queue {
   readonly name: string;
 
   /**
-   * Name of the next queue
+   * Name of the next queue in the flow
    */
   readonly nextQueueName: string;
 
@@ -33,6 +33,8 @@ export default class Queue {
 
   /**
    * Job attributes to query when fetching a job
+   * e.g. userId, requirementId in access check
+   * or platformUserId, platformGuildId in manage-reward
    */
   readonly attributesToGet: string[];
 
@@ -46,7 +48,7 @@ export default class Queue {
    * @param options parameters of the queue
    */
   constructor(options: QueueOptions) {
-    const { queueName, nextQueueName, attributesToGet } = options;
+    const { queueName, nextQueueName, attributesToGet, children } = options;
 
     this.name = queueName;
     this.attributesToGet = attributesToGet || [];
@@ -60,7 +62,7 @@ export default class Queue {
     }
 
     this.children =
-      options.children?.map(
+      children?.map(
         (c) =>
           new Queue({
             ...c,
