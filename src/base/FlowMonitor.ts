@@ -108,10 +108,13 @@ export default class FlowMonitor {
 
     await Promise.all([
       this.queueNames.map(async (queueName) => {
+        const queueNameForGauge = queueName.replaceAll(":", ".");
+
         const waitingQueueName = keyFormatter.waitingQueueName(queueName);
         const waitingJobIds = await this.redis.lRange(waitingQueueName, 0, -1);
+
         this.dogStatsD?.gauge(
-          `queue.${queueName}.waiting.length`,
+          `queue.${queueNameForGauge}.waiting.length`,
           waitingJobIds.length
         );
         newQueueJobs.set(waitingQueueName, waitingJobIds);
@@ -135,7 +138,7 @@ export default class FlowMonitor {
           .map(({ jobId }) => jobId);
 
         this.dogStatsD?.gauge(
-          `queue.${queueName}.processing.length`,
+          `queue.${queueNameForGauge}.processing.length`,
           validProcessingJobIds.length
         );
 
