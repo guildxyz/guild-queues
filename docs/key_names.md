@@ -1,0 +1,28 @@
+# Redis key names
+
+- `queue:<queueName>:<stage>`
+  - stage can be `waiting` or `processing`
+  - list for the waiting/processing jobs
+  - example: - `queue:update-membership:processing`
+- `lock:<queueName>:<jobId>`
+  - lock for a job in a queue
+  - contains the worker's id
+  - example: `lock:update-membership:aa27f46a-0cb0-43ff-aee9-13046101f1a7`
+- `job:<flowName>:<propertyKey>:<propertyValue>`
+  - lookup key for the job
+  - contains the job's id
+  - example: `job:access:userId:62`
+- `job:<flowName>:<jobId>`
+  - the job hash
+  - example: `job:access:aa27f46a-0cb0-43ff-aee9-13046101f1a7`
+  - special keys in job hash:
+    - `done`: true if the job is not running anymore (succeed or failed)
+    - `completed-queue`: the last queue which succeeded
+    - `children:<parentQueueName>:params`
+      - array of params of child jobs to create
+      - it will be used by the parent queue
+    - `children:<parentQueueName>:jobs`
+      - array of child job keys
+      - these keys are checked by the parent queue periodically
+- child queues and jobs names are composed by concatenating the parent queue name and the child name, separated by a column
+  - example: `manage-reward:discord` (`manage-reward` parent queue, `discord` child)
