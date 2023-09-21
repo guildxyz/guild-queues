@@ -1,5 +1,5 @@
 import { createClient } from "redis";
-import { FlowMonitorOptions, ILogger, RedisClient } from "./types";
+import { DogStatsD, FlowMonitorOptions, ILogger, RedisClient } from "./types";
 import { delay, keyFormatter } from "../utils";
 import { DEFAULT_LOG_META } from "../static";
 
@@ -23,6 +23,11 @@ export default class FlowMonitor {
   private readonly logger: ILogger;
 
   /**
+   * Provided dogStatsD
+   */
+  private readonly dogStatsD: DogStatsD;
+
+  /**
    * Names of the flow's queues
    */
   public queueNames: string[];
@@ -43,11 +48,18 @@ export default class FlowMonitor {
   public queueJobs = new Map<string, string[]>();
 
   constructor(options: FlowMonitorOptions) {
-    const { redisClientOptions, flowName, queueNames, logger, intervalMs } =
-      options;
+    const {
+      redisClientOptions,
+      flowName,
+      queueNames,
+      logger,
+      dogStatsD,
+      intervalMs,
+    } = options;
 
     this.flowName = flowName;
     this.logger = logger;
+    this.dogStatsD = dogStatsD;
     this.queueNames = queueNames;
     this.intervalMs = intervalMs || 1000;
 
@@ -97,16 +109,23 @@ export default class FlowMonitor {
     await Promise.all([
       this.queueNames.map(async (queueName) => {
         const waitingQueueName = keyFormatter.waitingQueueName(queueName);
-        const jobIds = await this.redis.lRange(waitingQueueName, 0, -1);
-        newQueueJobs.set(waitingQueueName, jobIds);
-      }),
-      this.queueNames.map(async (queueName) => {
-        const processingQueueName = keyFormatter.processingQueueName(queueName);
-        const jobIds = await this.redis.lRange(processingQueueName, 0, -1);
+        const waitingJobIds = await this.redis.lRange(waitingQueueName, 0, -1);
+        this.dogStatsD?.gauge(
+          `queue.${queueName}.waiting.length`,
+          waitingJobIds.length
+        );
+        newQueueJobs.set(waitingQueueName, waitingJobIds);
 
-        const validJobIds = (
+        const processingQueueName = keyFormatter.processingQueueName(queueName);
+        const processingJobIds = await this.redis.lRange(
+          processingQueueName,
+          0,
+          -1
+        );
+
+        const validProcessingJobIds = (
           await Promise.all(
-            jobIds.map(async (jobId) => ({
+            processingJobIds.map(async (jobId) => ({
               jobId,
               valid: await this.checkJobLock(queueName, jobId),
             }))
@@ -115,7 +134,12 @@ export default class FlowMonitor {
           .filter(({ valid }) => !!valid)
           .map(({ jobId }) => jobId);
 
-        newQueueJobs.set(processingQueueName, validJobIds);
+        this.dogStatsD?.gauge(
+          `queue.${queueName}.processing.length`,
+          validProcessingJobIds.length
+        );
+
+        newQueueJobs.set(processingQueueName, validProcessingJobIds);
       }),
     ]);
 

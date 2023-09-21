@@ -34,6 +34,33 @@ export interface IStartable {
  */
 export type ICorrelator = { withId(id: any, work: any): any; getId: () => any };
 
+/**
+ * Datadog's DogStatsD interface (I would rather not import the package just for this type)
+ */
+export interface DogStatsD {
+  increment(
+    stat: string,
+    value?: number,
+    tags?: { [tag: string]: string | number }
+  ): void;
+  decrement(
+    stat: string,
+    value?: number,
+    tags?: { [tag: string]: string | number }
+  ): void;
+  distribution(
+    stat: string,
+    value?: number,
+    tags?: { [tag: string]: string | number }
+  ): void;
+  gauge(
+    stat: string,
+    value?: number,
+    tags?: { [tag: string]: string | number }
+  ): void;
+  flush(): void;
+}
+
 /* ========== Aliases ========== */
 
 /**
@@ -205,5 +232,6 @@ export type FlowMonitorOptions = {
   flowName: string;
   queueNames: string[];
   logger: ILogger;
+  dogStatsD?: DogStatsD;
   intervalMs?: number;
 };
