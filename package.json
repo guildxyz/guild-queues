@@ -1,6 +1,6 @@
 {
   "name": "@guildxyz/queues",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Redis-based distributed message queue library for Guild.xyz's backend infrastructure.",
   "main": "./build/src/index.js",
   "types": "./build/src/index.d.ts",
