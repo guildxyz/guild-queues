@@ -11,8 +11,8 @@ flowchart TD
     C -->|Yes| H["DECR counter:delayed:discord:{discordServerId}"]
     C -->|No| I["Run job"]
     H --> I
-    B -->|No| D["X = GET counter:delayed:discord:{discordServerId}"]
-    D --> E["readyTimestamp = nextRequestTimestamp + <br>Math.floor(REQUESTS_WAITING/REQUESTS_PER_WINDOW)*TIME_WINDOW"]
+    B -->|No| D["delayedCount = GET counter:delayed:discord:{discordServerId}"]
+    D --> E["readyTimestamp = nextRequestTimestamp + <br>Math.floor(delayedCount/REQUESTS_PER_WINDOW)*TIME_WINDOW"]
     E --> F["INCR counter:delayed:discord:{discordServerId}"]
     F --> G["put job to DELAYED queue with the readyTimestamp"]
     I --> J["End"]
