@@ -8,12 +8,12 @@ Bottleneck.js can ensure that we only send 10 requests in every 10 seconds, and 
 flowchart TD
     A[Start] --> B{Can it run immediately?}
     B -->|Yes| C{Was it delayed?}
-    C -->|Yes| H["DECR semaphore:{discordServerId}"]
+    C -->|Yes| H["DECR counter:delayed:discord:{discordServerId}"]
     C -->|No| I["Run job"]
     H --> I
-    B -->|No| D["X = GET semaphore:{discordServerId}"]
+    B -->|No| D["X = GET counter:delayed:discord:{discordServerId}"]
     D --> E["readyTimestamp = nextRequestTimestamp + <br>Math.floor(REQUESTS_WAITING/REQUESTS_PER_WINDOW)*TIME_WINDOW"]
-    E --> F["INCR semaphore:{discordServerId}"]
+    E --> F["INCR counter:delayed:discord:{discordServerId}"]
     F --> G["put job to DELAYED queue with the readyTimestamp"]
     I --> J["End"]
     G --> J
