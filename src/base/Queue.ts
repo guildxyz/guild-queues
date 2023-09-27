@@ -32,6 +32,11 @@ export default class Queue {
   readonly processingQueueKey: string;
 
   /**
+   * Redis key of the delayed queue
+   */
+  readonly delayedQueueKey: string;
+
+  /**
    * Job attributes to query when fetching a job
    * e.g. userId, requirementId in access check
    * or platformUserId, platformGuildId in manage-reward
@@ -55,6 +60,7 @@ export default class Queue {
 
     this.waitingQueueKey = keyFormatter.waitingQueueName(queueName);
     this.processingQueueKey = keyFormatter.processingQueueName(queueName);
+    this.delayedQueueKey = keyFormatter.delayedQueueName(queueName);
 
     if (nextQueueName) {
       this.nextQueueName = nextQueueName;

@@ -12,6 +12,7 @@ import {
   BaseJobResult,
   AnyObject,
   ICorrelator,
+  DelayError,
 } from "./types";
 import { hGetMore, hSetMore, keyFormatter } from "../utils";
 import {
@@ -331,8 +332,16 @@ export default class Worker<
             // ths isolates error boundaries between "consumer-error" and "queue-lib-error"
             try {
               result = await this.executeWithDeadline(job);
-            } catch (workerFunctionError: any) {
-              await this.handleWorkerFunctionError(job.id, workerFunctionError);
+            } catch (error: any) {
+              if (error instanceof DelayError) {
+                await this.handleDelayError(
+                  job.id,
+                  error.message,
+                  error.readyTimestamp
+                );
+              } else {
+                await this.handleWorkerFunctionError(job.id, error);
+              }
             }
 
             if (result) {
@@ -447,5 +456,34 @@ export default class Worker<
           error: err,
         });
       });
+  };
+
+  private handleDelayError = async (
+    jobId: string,
+    reason: string,
+    readyTimestamp: number
+  ) => {
+    const propertiesToLog = {
+      ...DEFAULT_LOG_META,
+      queueName: this.queue.name,
+      flowName: this.flowName,
+      workerId: this.id,
+      jobId,
+      reason,
+      readyTimestamp,
+    };
+
+    this.logger.info("Job will be delayed", propertiesToLog);
+
+    const lockKey = keyFormatter.lock(this.queue.name, jobId);
+
+    const transactionResult = await this.nonBlockingRedis
+      .multi()
+      .zAdd(this.queue.delayedQueueKey, { value: jobId, score: readyTimestamp })
+      .lRem(this.queue.processingQueueKey, 1, jobId)
+      .del(lockKey)
+      .exec();
+
+    this.logger.info("Job delayed", { ...propertiesToLog, transactionResult });
   };
 }

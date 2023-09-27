@@ -3,6 +3,8 @@ import { DogStatsD, FlowMonitorOptions, ILogger, RedisClient } from "./types";
 import { delay, keyFormatter } from "../utils";
 import { DEFAULT_LOG_META } from "../static";
 
+type DelayedJob = { jobId: string; readyTimestamp: number };
+
 /**
  * Defines a entity which periodically checks and stores the queues' content of a flow
  */
@@ -33,6 +35,11 @@ export default class FlowMonitor {
   public queueNames: string[];
 
   /**
+   * Names of the flow's delayed queues
+   */
+  public delayedQueueNames: string[];
+
+  /**
    * Update interval in milliseconds
    */
   private intervalMs: number;
@@ -47,6 +54,8 @@ export default class FlowMonitor {
    */
   public queueJobs = new Map<string, string[]>();
 
+  public delayedQueueJobs = new Map<string, DelayedJob[]>();
+
   constructor(options: FlowMonitorOptions) {
     const {
       redisClientOptions,
@@ -54,6 +63,7 @@ export default class FlowMonitor {
       queueNames,
       logger,
       dogStatsD,
+      delayedQueueNames,
       intervalMs,
     } = options;
 
@@ -61,6 +71,7 @@ export default class FlowMonitor {
     this.logger = logger;
     this.dogStatsD = dogStatsD;
     this.queueNames = queueNames;
+    this.delayedQueueNames = delayedQueueNames;
     this.intervalMs = intervalMs || 1000;
 
     this.redis = createClient(redisClientOptions);
@@ -101,10 +112,54 @@ export default class FlowMonitor {
   };
 
   /**
+   * Move delayed jobs to the start of the waiting queue if they are ready
+   * @param queueName name of the queue
+   * @param delayedJobs id and readyTimestamp of the delayed job
+   * @returns the jobs which are still delayed (not resumed)
+   */
+  private resumeDelayedJobs = async (
+    queueName: string,
+    delayedJobs: DelayedJob[]
+  ) => {
+    const now = Date.now();
+    const jobIdsToResume: string[] = delayedJobs
+      .filter((job) => job.readyTimestamp <= now)
+      // sort to descending order, so the oldest will be added last with LPUSH
+      // thus itt will be the first in the waiting queue
+      .sort((a, b) => b.readyTimestamp - a.readyTimestamp)
+      .map((job) => job.jobId);
+
+    if (jobIdsToResume.length === 0) {
+      return delayedJobs;
+    }
+
+    const delayedQueueName = keyFormatter.delayedQueueName(queueName);
+    const waitingQueueName = keyFormatter.waitingQueueName(queueName);
+
+    await this.redis
+      .multi()
+      .lPush(waitingQueueName, jobIdsToResume)
+      .zRem(delayedQueueName, jobIdsToResume)
+      .exec();
+
+    jobIdsToResume.forEach((jobId) => {
+      this.logger.info("Job resumed", {
+        ...DEFAULT_LOG_META,
+        queueName,
+        flowName: this.flowName,
+        jobId,
+      });
+    });
+
+    return delayedJobs.filter((job) => !jobIdsToResume.includes(job.jobId));
+  };
+
+  /**
    * Update the queue-jobs map, check all jobs' locks
    */
   private refreshQueueList = async () => {
     const newQueueJobs = new Map<string, string[]>();
+    const newDelayedQueueJobs = new Map<string, DelayedJob[]>();
 
     await Promise.all([
       this.queueNames.map(async (queueName) => {
@@ -144,9 +199,39 @@ export default class FlowMonitor {
 
         newQueueJobs.set(processingQueueName, validProcessingJobIds);
       }),
+      this.delayedQueueNames.map(async (queueName) => {
+        const delayedQueueName = keyFormatter.delayedQueueName(queueName);
+        const jobIdsWithReadyTimestamps = await this.redis.zRangeWithScores(
+          delayedQueueName,
+          0,
+          -1
+        );
+
+        if (
+          !jobIdsWithReadyTimestamps ||
+          jobIdsWithReadyTimestamps.length === 0
+        ) {
+          return;
+        }
+
+        const delayedJobs = jobIdsWithReadyTimestamps.map<DelayedJob>(
+          ({ score, value }) => ({
+            jobId: value,
+            readyTimestamp: score,
+          })
+        );
+
+        const filteredDelayedJobs = await this.resumeDelayedJobs(
+          queueName,
+          delayedJobs
+        );
+
+        newDelayedQueueJobs.set(delayedQueueName, filteredDelayedJobs);
+      }),
     ]);
 
     this.queueJobs = newQueueJobs;
+    this.delayedQueueJobs = newDelayedQueueJobs;
     this.logger.info("job lists updated", {
       flowName: this.flowName,
     });

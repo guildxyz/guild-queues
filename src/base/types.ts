@@ -231,7 +231,17 @@ export type FlowMonitorOptions = {
   redisClientOptions: RedisClientOptions;
   flowName: string;
   queueNames: string[];
+  delayedQueueNames: string[];
   logger: ILogger;
   dogStatsD?: DogStatsD;
   intervalMs?: number;
 };
+
+export class DelayError extends Error {
+  public readyTimestamp: number;
+
+  constructor(reason: string, readyTimestamp: number) {
+    super(reason);
+    this.readyTimestamp = readyTimestamp;
+  }
+}

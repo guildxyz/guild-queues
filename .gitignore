@@ -2,6 +2,7 @@ build/
 node_modules/
 letsencrypt/
 .vscode
+tests
 
 *.env
 git-ignored

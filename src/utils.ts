@@ -87,6 +87,8 @@ export const keyFormatter = {
     `${QUEUE_KEY_PREFIX}:${queueName}:processing`,
   waitingQueueName: (queueName: string) =>
     `${QUEUE_KEY_PREFIX}:${queueName}:waiting`,
+  delayedQueueName: (queueName: string) =>
+    `${QUEUE_KEY_PREFIX}:${queueName}:delayed`,
   childrenParams: (parentQueueName: string) =>
     `children:${parentQueueName}:params`,
   childrenJobs: (parentQueueName: string) => `children:${parentQueueName}:jobs`,
