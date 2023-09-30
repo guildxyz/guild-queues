@@ -88,8 +88,8 @@ export default class FlowMonitor {
     const jobKey = keyFormatter.job(this.flowName, jobId);
     await Promise.all([
       this.redis.lRem(keyFormatter.processingQueueName(queueName), 1, jobId),
-      this.redis.hSet(jobKey, "done", '"true"'),
-      this.redis.hSet(jobKey, "failed", '"true"'),
+      this.redis.hSet(jobKey, "done", "true"),
+      this.redis.hSet(jobKey, "failed", "true"),
       this.redis.hSet(
         jobKey,
         "failedErrorMsg",
