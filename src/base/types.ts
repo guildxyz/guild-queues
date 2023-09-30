@@ -122,7 +122,7 @@ export type BaseJob = {
 export type WorkerFunction<
   Params extends BaseJobParams,
   Result extends BaseJobResult
-> = (job: Params) => Promise<Result>;
+> = (job: Params, queueIndex?: number) => Promise<Result>;
 
 /* ========== Options ========== */
 
@@ -159,7 +159,7 @@ export type WorkerOptions<
   /**
    * The queue to work on
    */
-  queue: Queue;
+  queues: Queue[];
   /**
    * Prefix of the flow this worker belongs to
    */

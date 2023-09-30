@@ -286,7 +286,7 @@ export default class Flow<
       const worker = new Worker<QueueJob["params"], QueueJob["result"]>({
         flowName: this.name,
         workerFunction,
-        queue,
+        queues: [queue],
         lockTimeSec,
         blockTimeoutSec,
         redisClientOptions: this.redisClientOptions,
@@ -321,7 +321,7 @@ export default class Flow<
     for (let i = 0; i < count; i += 1) {
       const worker = new ParentWorker({
         flowName: this.name,
-        queue,
+        queues: [queue],
         lockTimeSec,
         blockTimeoutSec,
         redisClientOptions: this.redisClientOptions,
@@ -367,7 +367,7 @@ export default class Flow<
       const worker = new Worker<QueueJob["params"], QueueJob["result"]>({
         flowName: childQueueName,
         workerFunction,
-        queue,
+        queues: [queue],
         lockTimeSec,
         blockTimeoutSec,
         redisClientOptions: this.redisClientOptions,

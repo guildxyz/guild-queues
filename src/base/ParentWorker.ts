@@ -31,17 +31,22 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
    * @returns result which contains the next queue
    */
   parentWorkerFunction: WorkerFunction<BaseJobParams, BaseJobResult> = async (
-    job
+    job,
+    queueIndex
   ) => {
     // get the params and ids (if they exist) of the child jobs from redis
     const jobKey = keyFormatter.job(this.flowName, job.id);
-    const childParamsKey = keyFormatter.childrenParams(this.queue.name);
-    const childJobsKey = keyFormatter.childrenJobs(this.queue.name);
+    const childParamsKey = keyFormatter.childrenParams(
+      this.queues[queueIndex].name
+    );
+    const childJobsKey = keyFormatter.childrenJobs(
+      this.queues[queueIndex].name
+    );
     const [paramsString, jobsString] = await Promise.all([
       this.nonBlockingRedis.hGet(jobKey, childParamsKey),
       this.nonBlockingRedis.hGet(jobKey, childJobsKey),
     ]);
-    const childGroup = this.queue.name;
+    const childGroup = this.queues[queueIndex].name;
 
     const params: BaseChildParam[] = JSON.parse(paramsString);
     let jobs: string[] = jobsString ? JSON.parse(jobsString) : [];
@@ -55,7 +60,7 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
         if (!param.childName) {
           this.logger.warn("Child name is missing in child params", {
             ...DEFAULT_LOG_META,
-            queueName: this.queue.name,
+            queueName: this.queues[queueIndex].name,
             flowName: this.flowName,
             workerId: this.id,
             jobId: job.id,
@@ -115,7 +120,7 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
 
     // return with the next queue, so it the job will be passed there
     return {
-      nextQueue: this.queue.nextQueueName,
+      nextQueue: this.queues[queueIndex].nextQueueName,
     };
   };
 
