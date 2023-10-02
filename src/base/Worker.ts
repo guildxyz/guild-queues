@@ -285,6 +285,47 @@ export default class Worker<
   };
 
   /**
+   * Check the rate limit state and delay job if necessary
+   * @param queueIndex The queue's index we currently work on
+   * @param job The job to execute
+   * @returns whether the job was delayed
+   */
+  private delayJobIfLimited = async (queueIndex: number, job: Params) => {
+    const queue = this.queues[queueIndex];
+    const queueName = queue.name;
+    const groupName = job[queue.limiter.groupJobKey];
+
+    const currentTimeWindow = Math.floor(Date.now() / queue.limiter.intervalMs);
+    const delayCallsKey = keyFormatter.delayCalls(
+      queueName,
+      groupName,
+      currentTimeWindow
+    );
+
+    const calls = await this.nonBlockingRedis.incr(delayCallsKey);
+
+    if (calls > queue.limiter.reservoir) {
+      const delayEnqueuedKey = keyFormatter.delayEnqueued(queueName, groupName);
+      const enqueuedCount =
+        (await this.nonBlockingRedis.incr(delayEnqueuedKey)) - 1; // minus one, because the current job does not count
+
+      const nextTimeWindowStart =
+        (currentTimeWindow + 1) * queue.limiter.intervalMs;
+
+      const readyTimestamp =
+        nextTimeWindowStart +
+        Math.floor(enqueuedCount / queue.limiter.reservoir) *
+          queue.limiter.intervalMs;
+
+      await this.delayJob(queueIndex, job.id, "limiter", readyTimestamp);
+
+      return true;
+    }
+
+    return false;
+  };
+
+  /**
    * Executes a job with a timeout lockTimeSec)
    * @param job Job to execute
    * @returns result of the job
@@ -344,6 +385,13 @@ export default class Worker<
             }
           }
 
+          if (this.queues[queueIndex].limiter) {
+            const isLimited = await this.delayJobIfLimited(queueIndex, job);
+            if (isLimited) {
+              return;
+            }
+          }
+
           // if there's a job execute it
           if (job) {
             let result: Result;
@@ -353,7 +401,7 @@ export default class Worker<
               result = await this.executeWithDeadline(queueIndex, job);
             } catch (error: any) {
               if (error instanceof DelayError) {
-                await this.handleDelayError(
+                await this.delayJob(
                   queueIndex,
                   job.id,
                   error.message,
@@ -482,7 +530,7 @@ export default class Worker<
       });
   };
 
-  private handleDelayError = async (
+  private delayJob = async (
     queueIndex: number,
     jobId: string,
     reason: string,

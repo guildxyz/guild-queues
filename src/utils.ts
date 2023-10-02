@@ -96,6 +96,13 @@ export const keyFormatter = {
     `${JOB_KEY_PREFIX}:${childGroup}:${childName}:${childJobId}`,
   childWaitingQueueName: (childGroup: string, childName: string) =>
     `${QUEUE_KEY_PREFIX}:${childGroup}:${childName}:waiting`,
+  delayCalls: (
+    queueName: string,
+    groupName: string,
+    currentTimeWindow: number
+  ) => `counter:delay:calls:${queueName}:${groupName}:${currentTimeWindow}`,
+  delayEnqueued: (queueName: string, groupName: string) =>
+    `counter:delay:enqueued:${queueName}:${groupName}`,
 };
 
 export const getLookupKeys = (

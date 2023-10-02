@@ -1,6 +1,6 @@
 /* eslint-disable no-use-before-define */
 import { keyFormatter } from "../utils";
-import { QueueOptions } from "./types";
+import { Limiter, QueueOptions } from "./types";
 
 /**
  * Stores a queue's properties
@@ -48,14 +48,18 @@ export default class Queue {
    */
   readonly children: Queue[];
 
+  readonly limiter?: Limiter;
+
   /**
    * Sets the properties
    * @param options parameters of the queue
    */
   constructor(options: QueueOptions) {
-    const { queueName, nextQueueName, attributesToGet, children } = options;
+    const { queueName, nextQueueName, attributesToGet, children, limiter } =
+      options;
 
     this.name = queueName;
+    this.limiter = limiter;
     this.attributesToGet = attributesToGet || [];
 
     this.waitingQueueKey = keyFormatter.waitingQueueName(queueName);

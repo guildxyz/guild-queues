@@ -49,7 +49,8 @@ export type StatusUpdatePreparationResult = StatusUpdateFlowResult &
       }
   );
 
-export type BulkAccessCheckParams = StatusUpdatify<AccessCheckParams>;
+export type BulkAccessCheckParams = StatusUpdatify<AccessCheckParams> &
+  BaseJobParams;
 
 export type BulkAccessCheckResult = StatusUpdateFlowResult & {
   done: true;

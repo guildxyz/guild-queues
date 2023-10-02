@@ -167,6 +167,7 @@ export type ManageRewardBase = {
  */
 export type ManageRewardChildParams = {
   childName: string;
+  platformGuildId: string;
   manageRewardAction: ManageRewardBase; // nested, because this way we only need to HGET one field
 };
 
@@ -174,6 +175,7 @@ export type ManageRewardChildParams = {
  * Manage reward child job params
  */
 export type ManageRewardParams = BaseJobParams & {
+  platformGuildId: string;
   manageRewardAction: ManageRewardBase;
 };
 

@@ -80,11 +80,18 @@ export type ArrayElement<ArrayType> =
 
 /* ========== Base types ========== */
 
+export type Limiter = {
+  reservoir: number;
+  intervalMs: number;
+  groupJobKey: string;
+};
+
 /**
  * The minimal job that a Worker can work with
  */
 export type BaseJobParams = {
   id: string;
+  [key: string]: any;
 };
 
 /**
@@ -147,6 +154,11 @@ export type QueueOptions<NextQueueName extends string = string> = {
    * Options for creating the child queues
    */
   children?: QueueOptions[];
+
+  /**
+   * Optional rate limiter options
+   */
+  limiter?: Limiter;
 };
 
 /**
