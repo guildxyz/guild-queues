@@ -29,16 +29,15 @@ So if we know the how many request do we have in the current time window and how
 
 ```mermaid
 flowchart TD
-    A[Start] --> B["get rate limit info:<br>HGETALL counter:delay:calls:{queueName}:{groupName}:{current-time-window}"]
-    B --> K{Can it run immediately?}
-    K -->|Yes| C{Was it delayed?}
+    A[Start] --> B["get rate limit info:<br>callCount = INCR counter:delay:calls:{queueName}:{groupName}:{current-time-window}"]
+    B --> K{"Can it run immediately?<br>IF callCount <= reservoir"}
+    K -->|Yes| C{"Was it delayed?"}
     C -->|Yes| H["decrement counter of group:<br>DECR counter:delay:enqueued:{queueName}:{groupName}"]
     C -->|No| I["Run job"]
     H --> I
-    K -->|No| D["get counter of group:<br>enqueuedCount = GET counter:delay:enqueued:{queueName}:{groupName}"]
+    K -->|No| D["increment (and get) counter of group:<br>enqueuedCount = `INCR counter:delay:enqueued:{queueName}:{groupName}` - 1<br>note: we subtract one because the current one is included in the result"]
     D --> E["estimate delay:<br>readyTimestamp = nextTimeWindowStart + <br>Math.floor(enqueuedCount/REQUESTS_PER_WINDOW)*TIME_WINDOW"]
-    E --> F["increment counter of group:<br>INCR counter:delay:enqueued:{queueName}:{groupName}"]
-    F --> G["put job to DELAYED queue with the readyTimestamp"]
+    E --> G["put job to DELAYED queue with the readyTimestamp"]
     I --> J["End"]
     G --> J
 ```
