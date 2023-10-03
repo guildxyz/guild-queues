@@ -82,6 +82,11 @@ const createAccessFlow = (options: AccessFlowOptions) => {
         {
           queueName: "discord",
           attributesToGet: manageRewardAttributeToGet,
+          limiter: {
+            groupJobKey: "platformGuildId",
+            intervalMs: 10 * 1000,
+            reservoir: 10,
+          },
         },
         {
           queueName: "telegram",
