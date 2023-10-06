@@ -71,6 +71,10 @@ export default class Queue {
       this.nextQueueKey = keyFormatter.waitingQueueName(nextQueueName);
     }
 
+    if (limiter?.groupJobKey) {
+      this.attributesToGet = [...new Set(attributesToGet), limiter.groupJobKey];
+    }
+
     this.children =
       children?.map(
         (c) =>

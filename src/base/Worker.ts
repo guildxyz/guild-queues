@@ -19,7 +19,14 @@ import {
   DEFAULT_LOCK_SEC,
   DEFAULT_LOG_META,
   DEFAULT_WAIT_TIMEOUT_SEC,
+  DELAY_REASON_FIELD,
+  DELAY_TIMESTAMP_FIELD,
+  DONE_FIELD,
   EXTRA_LOCK_SEC,
+  FAILED_ERROR_MSG_FIELD,
+  FAILED_FIELD,
+  FAILED_QUEUE_FIELD,
+  IS_DELAY_FIELD,
 } from "../static";
 
 /**
@@ -293,7 +300,7 @@ export default class Worker<
   private delayJobIfLimited = async (queueIndex: number, job: Params) => {
     const queue = this.queues[queueIndex];
     const queueName = queue.name;
-    const groupName = job[queue.limiter.groupJobKey];
+    const groupName = (job as any)[queue.limiter.groupJobKey]; // it's probably not worth the time now to make a new generic type param for this in the Worker
 
     const currentTimeWindow = Math.floor(Date.now() / queue.limiter.intervalMs);
     const delayCallsKey = keyFormatter.delayCalls(
@@ -396,7 +403,7 @@ export default class Worker<
           if (job) {
             let result: Result;
 
-            // ths isolates error boundaries between "consumer-error" and "queue-lib-error"
+            // this isolates error boundaries between "consumer-error" and "queue-lib-error"
             try {
               result = await this.executeWithDeadline(queueIndex, job);
             } catch (error: any) {
@@ -410,6 +417,15 @@ export default class Worker<
               } else {
                 await this.handleWorkerFunctionError(queueIndex, job.id, error);
               }
+            }
+
+            if (this.queues[queueIndex].limiter && (job as any).delay) {
+              const jobKey = keyFormatter.job(this.flowName, job.id);
+              await this.nonBlockingRedis.hDel(jobKey, [
+                IS_DELAY_FIELD,
+                DELAY_TIMESTAMP_FIELD,
+                DELAY_REASON_FIELD,
+              ]);
             }
 
             if (result) {
@@ -501,10 +517,10 @@ export default class Worker<
 
     const jobKey = keyFormatter.job(this.flowName, jobId);
     const propertiesToSave = {
-      done: true,
-      failed: true,
-      failedQueue: this.queues[queueIndex].name,
-      failedErrorMsg: error.message,
+      [DONE_FIELD]: true,
+      [FAILED_FIELD]: true,
+      [FAILED_QUEUE_FIELD]: this.queues[queueIndex].name,
+      [FAILED_ERROR_MSG_FIELD]: error.message,
     };
 
     // mark the job as failed
@@ -549,6 +565,7 @@ export default class Worker<
     this.logger.info("Job will be delayed", propertiesToLog);
 
     const lockKey = keyFormatter.lock(this.queues[queueIndex].name, jobId);
+    const jobKey = keyFormatter.job(this.queues[queueIndex].name, jobId);
 
     const transactionResult = await this.nonBlockingRedis
       .multi()
@@ -557,6 +574,14 @@ export default class Worker<
         score: readyTimestamp,
       })
       .lRem(this.queues[queueIndex].processingQueueKey, 1, jobId)
+      .hSet(jobKey, [
+        IS_DELAY_FIELD,
+        "true",
+        DELAY_TIMESTAMP_FIELD,
+        readyTimestamp,
+        DELAY_REASON_FIELD,
+        reason,
+      ])
       .del(lockKey)
       .exec();
 

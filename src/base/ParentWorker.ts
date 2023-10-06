@@ -14,6 +14,7 @@ import {
   DEFAULT_KEY_EXPIRY_SEC,
   DEFAULT_LOG_META,
   DEFAULT_PARENT_CHECK_INTERVAL_MS,
+  DONE_FIELD,
 } from "../static";
 
 /**
@@ -105,7 +106,7 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
       // get the child job's done field
       const transaction = this.nonBlockingRedis.multi();
       jobs.forEach((j) => {
-        transaction.hGet(j, "done");
+        transaction.hGet(j, DONE_FIELD);
       });
       const results = await transaction.exec();
 

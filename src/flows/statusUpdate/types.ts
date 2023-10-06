@@ -1,4 +1,5 @@
 import { BaseJobParams } from "../../base/types";
+import { DONE_FIELD } from "../../static";
 import {
   AccessCheckChildParams,
   AccessCheckParams,
@@ -53,7 +54,7 @@ export type BulkAccessCheckParams = StatusUpdatify<AccessCheckParams> &
   BaseJobParams;
 
 export type BulkAccessCheckResult = StatusUpdateFlowResult & {
-  done: true;
+  [DONE_FIELD]: true;
   requirementId: number;
   errors?: RequirementError[];
   users: {

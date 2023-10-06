@@ -1,7 +1,13 @@
 import { createClient } from "redis";
 import { DogStatsD, FlowMonitorOptions, ILogger, RedisClient } from "./types";
 import { delay, keyFormatter } from "../utils";
-import { DEFAULT_LOG_META } from "../static";
+import {
+  DEFAULT_LOG_META,
+  DONE_FIELD,
+  FAILED_ERROR_MSG_FIELD,
+  FAILED_FIELD,
+  FAILED_QUEUE_FIELD,
+} from "../static";
 
 type DelayedJob = { jobId: string; readyTimestamp: number };
 
@@ -99,11 +105,12 @@ export default class FlowMonitor {
     const jobKey = keyFormatter.job(this.flowName, jobId);
     await Promise.all([
       this.redis.lRem(keyFormatter.processingQueueName(queueName), 1, jobId),
-      this.redis.hSet(jobKey, "done", '"true"'),
-      this.redis.hSet(jobKey, "failed", '"true"'),
+      this.redis.hSet(jobKey, DONE_FIELD, "true"),
+      this.redis.hSet(jobKey, FAILED_FIELD, "true"),
+      this.redis.hSet(jobKey, FAILED_QUEUE_FIELD, queueName),
       this.redis.hSet(
         jobKey,
-        "failedErrorMsg",
+        FAILED_ERROR_MSG_FIELD,
         `"${queueName} lock time exceeded"`
       ),
     ]);
@@ -200,19 +207,14 @@ export default class FlowMonitor {
         newQueueJobs.set(processingQueueName, validProcessingJobIds);
       }),
       this.delayedQueueNames.map(async (queueName) => {
+        const queueNameForGauge = queueName.replaceAll(":", ".");
+
         const delayedQueueName = keyFormatter.delayedQueueName(queueName);
         const jobIdsWithReadyTimestamps = await this.redis.zRangeWithScores(
           delayedQueueName,
           0,
           -1
         );
-
-        if (
-          !jobIdsWithReadyTimestamps ||
-          jobIdsWithReadyTimestamps.length === 0
-        ) {
-          return;
-        }
 
         const delayedJobs = jobIdsWithReadyTimestamps.map<DelayedJob>(
           ({ score, value }) => ({
@@ -224,6 +226,11 @@ export default class FlowMonitor {
         const filteredDelayedJobs = await this.resumeDelayedJobs(
           queueName,
           delayedJobs
+        );
+
+        this.dogStatsD?.gauge(
+          `queue.${queueNameForGauge}.delayed.length`,
+          filteredDelayedJobs.length
         );
 
         newDelayedQueueJobs.set(delayedQueueName, filteredDelayedJobs);

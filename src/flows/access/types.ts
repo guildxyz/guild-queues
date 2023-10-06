@@ -6,6 +6,7 @@ import {
   BaseJobResult,
   ICorrelator,
 } from "../../base/types";
+import { DONE_FIELD } from "../../static";
 
 /**
  * Options to create flows in the AccessFlow
@@ -98,7 +99,7 @@ export type RequirementError = {
  * Result of the access-check queue
  */
 export type AccessCheckResult = AccessFlowResult & {
-  done: true;
+  [DONE_FIELD]: true;
   requirementId: number;
   access: boolean;
   amount?: number;
@@ -183,7 +184,7 @@ export type ManageRewardParams = BaseJobParams & {
  * Manage reward child result
  */
 export type ManageRewardResult = BaseJobResult & {
-  done: true;
+  [DONE_FIELD]: true;
   success: boolean;
   errorMsg?: string;
 };
@@ -210,7 +211,7 @@ export type PrepareManageRewardResult = AccessFlowResult & {
  */
 export type AccessResultResult = AccessFlowResult & {
   nextQueue?: never;
-  done: true;
+  [DONE_FIELD]: true;
 };
 
 /**

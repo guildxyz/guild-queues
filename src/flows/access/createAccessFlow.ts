@@ -84,8 +84,8 @@ const createAccessFlow = (options: AccessFlowOptions) => {
           attributesToGet: manageRewardAttributeToGet,
           limiter: {
             groupJobKey: "platformGuildId",
-            intervalMs: 10 * 1000,
-            reservoir: 10,
+            intervalMs: 5 * 1000,
+            reservoir: 5,
           },
         },
         {

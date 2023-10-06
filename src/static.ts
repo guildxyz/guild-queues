@@ -15,3 +15,19 @@ export const DEFAULT_KEY_EXPIRY_SEC = 60 * 60 * 24;
 export const EXTRA_LOCK_SEC = 1;
 // this metadata should be included in all logs
 export const DEFAULT_LOG_META = { queues: true };
+
+// field indicating that the job will not be executed / changed, it's flow finished
+export const DONE_FIELD = "done";
+// field indicating the job encountered an error and there's no result
+export const FAILED_FIELD = "failed";
+// the name of the queue where the job encountered an error
+export const FAILED_QUEUE_FIELD = "failedQueue";
+// the message of the encountered error
+export const FAILED_ERROR_MSG_FIELD = "failedErrorMsg";
+
+// whether the job is currently delayed
+export const IS_DELAY_FIELD = "delay";
+// the time when the delayed job will be ready to execute again
+export const DELAY_TIMESTAMP_FIELD = "delayReadyTimestamp";
+// the reason why the job was delayed
+export const DELAY_REASON_FIELD = "delayReason";

@@ -91,7 +91,6 @@ export type Limiter = {
  */
 export type BaseJobParams = {
   id: string;
-  [key: string]: any;
 };
 
 /**

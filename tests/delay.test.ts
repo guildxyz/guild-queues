@@ -51,17 +51,19 @@ afterAll(async () => {
   await redisMockClient.disconnect();
 });
 
-const testDelay = async (amount: number, groupCount: number) => {
+const testDelayJobIfLimited = async (amount: number, groupCount: number) => {
+  // do
   await Promise.all(
     [...Array(amount).keys()].map(async (i) => {
       // eslint-disable-next-line dot-notation
       await worker["delayJobIfLimited"](QUEUE_INDEX, {
         id: `${i}`,
         type: `${i % groupCount}`,
-      });
+      } as any);
     })
   );
 
+  // test
   expect(delayJobSpy.mock.calls.length).toBe(
     oldMockCallCount + amount - groupCount * RESERVOIR
   );
@@ -69,24 +71,25 @@ const testDelay = async (amount: number, groupCount: number) => {
 
   await Promise.all(
     [...Array(groupCount).keys()].map(async (i) => {
-      const enqueued = await redisMockClient.get(
-        keyFormatter.delayEnqueued(queue.name, `${i}`)
-      );
+      const delayEnqueuedKey = keyFormatter.delayEnqueued(queue.name, `${i}`);
+      const enqueued = await redisMockClient.get(delayEnqueuedKey);
       expect(enqueued).toBe(`${amount / groupCount - RESERVOIR}`);
+      // cleanup, we don't test decrementing the enqueued count here, that happens after the job executed
+      await redisMockClient.del(delayEnqueuedKey);
     })
   );
 };
 
-describe("delay test", () => {
-  test("test delay", async () => {
+describe("delay", () => {
+  test("test delayJobIfLimited - executing the right number of jobs", async () => {
     const firstAmount = 10;
     const firstGroupCount = 2;
-    await testDelay(firstAmount, firstGroupCount);
+    await testDelayJobIfLimited(firstAmount, firstGroupCount);
 
-    await delay(3000);
+    await delay(INTERVAL_MS);
 
     const secondAmount = 60;
     const secondGroupCount = 4;
-    await testDelay(secondAmount, secondGroupCount);
+    await testDelayJobIfLimited(secondAmount, secondGroupCount);
   });
 });
