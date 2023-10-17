@@ -15,7 +15,7 @@ export type CreateAccessJobOptions = {
   userId: number;
   roleIds: number[];
   guildId: number;
-  priority?: number;
+  priority: number;
   recheckAccess: boolean;
   updateMemberships: boolean;
   manageRewards: boolean;
@@ -37,6 +37,8 @@ export type AccessFlowOptions = {
  */
 export type AccessFlowParams = {
   id: string;
+  flowName: "access";
+  priority: number;
   userId: number;
   guildId: number;
   roleIds: number[];
@@ -301,3 +303,5 @@ export type AccessFlowJob =
   | PrepareManageRewardJob
   | ManageRewardJob
   | AccessResultJob;
+
+export type AccessLookupAttributes = "userId" | "roleIds" | "guildId";

@@ -9,8 +9,7 @@ import {
   AccessResultResult,
   CreateAccessJobOptions,
   ManageRewardChildParams,
-  ManageRewardParams,
-  ManageRewardResult,
+  ManageRewardJob,
   RequirementError,
 } from "../access/types";
 
@@ -27,7 +26,10 @@ export type StatusUpdateFlowOptions = AccessFlowOptions;
 
 /* --------------------------- params and results --------------------------- */
 
-export type StatusUpdateFlowParams = Omit<AccessFlowParams, "userId">;
+export type StatusUpdateFlowParams = Omit<
+  AccessFlowParams,
+  "userId" | "flowName"
+> & { flowName: "status-update" };
 
 export type StatusUpdateFlowResult = {
   // eslint-disable-next-line no-use-before-define
@@ -151,29 +153,6 @@ export type BulkPrepareManageRewardJob = {
   result: BulkPrepareManageRewardResult;
 };
 
-export type StatusUpdateManageRewardJob = {
-  queueName: "status-update-manage-reward";
-  children: [
-    {
-      queueName: "discord";
-    },
-    {
-      queueName: "telegram";
-    },
-    {
-      queueName: "github";
-    },
-    {
-      queueName: "google";
-    },
-    {
-      queueName: "nft";
-    }
-  ];
-  params: ManageRewardParams;
-  result: ManageRewardResult;
-};
-
 export type StatusUpdateResultJob = {
   queueName: "status-update-result";
   children: [];
@@ -187,5 +166,7 @@ export type StatusUpdateJob =
   | BulkAccessLogicJob
   | BulkUpdateMembershipJob
   | BulkPrepareManageRewardJob
-  | StatusUpdateManageRewardJob
+  | ManageRewardJob
   | StatusUpdateResultJob;
+
+export type StatusUpdateLookupAttributes = "userIds" | "roleIds" | "guildId";

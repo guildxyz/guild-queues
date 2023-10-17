@@ -1,5 +1,12 @@
+import { uuidv7 } from "uuidv7";
 import { AnyObject, RedisClient } from "./base/types";
-import { JOB_KEY_PREFIX, LOCK_KEY_PREFIX, QUEUE_KEY_PREFIX } from "./static";
+import { FlowNames } from "./flows/types";
+import {
+  COUNTER_KEY_PREFIX,
+  JOB_KEY_PREFIX,
+  LOCK_KEY_PREFIX,
+  QUEUE_KEY_PREFIX,
+} from "./static";
 
 /**
  * Parse object retrieved by HGETs or HGETALL which consists of JSON values
@@ -71,10 +78,9 @@ export const delay = (ms: number): Promise<void> =>
   });
 
 export const keyFormatter = {
-  job: (flowName: string, jobId: string) =>
-    `${JOB_KEY_PREFIX}:${flowName}:${jobId}`,
+  job: (jobId: string) => `${JOB_KEY_PREFIX}:${jobId}`,
   lookup: (
-    flowName: string,
+    flowName: FlowNames,
     lookupAttribute: string,
     lookupAttributeValue: string | number
   ) =>
@@ -83,30 +89,32 @@ export const keyFormatter = {
     `${LOCK_KEY_PREFIX}:${queueName}:${jobId}`,
   childQueueName: (parentQueueName: string, childName: string) =>
     `${parentQueueName}:${childName}`,
-  processingQueueName: (queueName: string) =>
-    `${QUEUE_KEY_PREFIX}:${queueName}:processing`,
-  waitingQueueName: (queueName: string) =>
-    `${QUEUE_KEY_PREFIX}:${queueName}:waiting`,
-  delayedQueueName: (queueName: string) =>
-    `${QUEUE_KEY_PREFIX}:${queueName}:delayed`,
+  processingQueueName: (queueName: string, priority: number) =>
+    `${QUEUE_KEY_PREFIX}:${queueName}:${priority}:processing`,
+  waitingQueueName: (queueName: string, priority: number) =>
+    `${QUEUE_KEY_PREFIX}:${queueName}:${priority}:waiting`,
+  delayedQueueName: (queueName: string, priority: number) =>
+    `${QUEUE_KEY_PREFIX}:${queueName}:${priority}:delayed`,
   childrenParams: (parentQueueName: string) =>
     `children:${parentQueueName}:params`,
   childrenJobs: (parentQueueName: string) => `children:${parentQueueName}:jobs`,
-  childJob: (childGroup: string, childName: string, childJobId: string) =>
-    `${JOB_KEY_PREFIX}:${childGroup}:${childName}:${childJobId}`,
-  childWaitingQueueName: (childGroup: string, childName: string) =>
-    `${QUEUE_KEY_PREFIX}:${childGroup}:${childName}:waiting`,
+  childWaitingQueueName: (
+    childGroup: string,
+    childName: string,
+    priority: number
+  ) => `${QUEUE_KEY_PREFIX}:${childGroup}:${childName}:${priority}:waiting`,
   delayCalls: (
     queueName: string,
     groupName: string,
     currentTimeWindow: number
-  ) => `counter:delay:calls:${queueName}:${groupName}:${currentTimeWindow}`,
+  ) =>
+    `${COUNTER_KEY_PREFIX}:delay:calls:${queueName}:${groupName}:${currentTimeWindow}`,
   delayEnqueued: (queueName: string, groupName: string) =>
-    `counter:delay:enqueued:${queueName}:${groupName}`,
+    `${COUNTER_KEY_PREFIX}:delay:enqueued:${queueName}:${groupName}`,
 };
 
 export const getLookupKeys = (
-  flowName: string,
+  flowName: FlowNames,
   createJobOptions: AnyObject,
   lookupAttributes: string[]
 ) => {
@@ -134,3 +142,8 @@ export const getLookupKeys = (
   });
   return lookupKeys;
 };
+
+export const generateJobId = (flowName: string) => `${flowName}:${uuidv7()}`;
+
+export const extractFlowNameFromJobId = (jobId: string) =>
+  jobId.split(":")?.[0];

@@ -2,6 +2,7 @@
 export const QUEUE_KEY_PREFIX = "queue";
 export const LOCK_KEY_PREFIX = "lock";
 export const JOB_KEY_PREFIX = "job";
+export const COUNTER_KEY_PREFIX = "counter";
 
 // lease a job for this amount of time
 export const DEFAULT_LOCK_SEC = 60 * 3;
@@ -15,6 +16,7 @@ export const DEFAULT_KEY_EXPIRY_SEC = 60 * 60 * 24;
 export const EXTRA_LOCK_SEC = 1;
 // this metadata should be included in all logs
 export const DEFAULT_LOG_META = { queues: true };
+export const DEFAULT_PRIORITY = 1;
 
 // field indicating that the job will not be executed / changed, it's flow finished
 export const DONE_FIELD = "done";

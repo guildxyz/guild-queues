@@ -1,5 +1,7 @@
+// eslint-disable-next-line max-classes-per-file
 import { RedisClientOptions, createClient } from "redis";
 import Queue from "./Queue";
+import { FlowNames } from "../flows/types";
 
 /* ========== Interfaces ========== */
 
@@ -91,6 +93,8 @@ export type Limiter = {
  */
 export type BaseJobParams = {
   id: string;
+  flowName: FlowNames;
+  priority: number;
 };
 
 /**
@@ -128,7 +132,7 @@ export type BaseJob = {
 export type WorkerFunction<
   Params extends BaseJobParams,
   Result extends BaseJobResult
-> = (job: Params, queueIndex?: number) => Promise<Result>;
+> = (job: Params) => Promise<Result>;
 
 /* ========== Options ========== */
 
@@ -145,6 +149,11 @@ export type QueueOptions<NextQueueName extends string = string> = {
    */
   nextQueueName?: NextQueueName;
   /**
+   * If the queue is part of multiple flows, it probably has multiple next queues
+   * This map maps the flow names to the next queues
+   */
+  nextQueueMap?: Map<string, string>;
+  /**
    * Default attributes (of the flow) necessary to execute the job
    */
   attributesToGet?: string[];
@@ -158,6 +167,18 @@ export type QueueOptions<NextQueueName extends string = string> = {
    * Optional rate limiter options
    */
   limiter?: Limiter;
+
+  /**
+   * Number of priorities for this queue
+   */
+  priorities?: number;
+
+  /**
+   * Whether the job is expected to be delayed
+   * The flow monitor uses this info
+   * If it's true it will monitor the queue's delay queue as well
+   */
+  delayable?: boolean;
 };
 
 /**
@@ -170,11 +191,7 @@ export type WorkerOptions<
   /**
    * The queue to work on
    */
-  queues: Queue[];
-  /**
-   * Prefix of the flow this worker belongs to
-   */
-  flowName: string;
+  queue: Queue;
   /**
    * The function to execute on jobs
    */
@@ -240,9 +257,6 @@ export type FlowOptions = {
 
 export type FlowMonitorOptions = {
   redisClientOptions: RedisClientOptions;
-  flowName: string;
-  queueNames: string[];
-  delayedQueueNames: string[];
   logger: ILogger;
   dogStatsD?: DogStatsD;
   intervalMs?: number;

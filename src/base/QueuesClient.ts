@@ -1,57 +1,28 @@
 import { RedisClientOptions, createClient } from "redis";
-import { uuidv7 } from "uuidv7";
-import Queue from "./Queue";
-import Worker from "./Worker";
 import {
-  AnyObject,
-  FlowOptions,
-  ILogger,
-  RedisClient,
-  WorkerFunction,
-  IStartable,
-  BaseJob,
   ArrayElement,
   ICorrelator,
+  ILogger,
+  IStartable,
+  RedisClient,
+  WorkerFunction,
 } from "./types";
+import Worker from "./Worker";
+import { FlowNames, FlowTypes } from "../flows/types";
 import {
+  generateJobId,
   getLookupKeys,
   keyFormatter,
   objectToStringEntries,
   parseObject,
 } from "../utils";
-import ParentWorker from "./ParentWorker";
 import { DEFAULT_KEY_EXPIRY_SEC } from "../static";
+import flows from "../flows/flows";
+import ParentWorker from "./ParentWorker";
 
-/**
- * Defines a sequence of Jobs / Queues / Workers
- */
-export default class Flow<
-  FlowJob extends BaseJob,
-  CreateJobOptions extends AnyObject,
-  LookupAttributes extends keyof CreateJobOptions
-> {
+export default class QueuesClient {
   /**
-   * Name of the flow
-   */
-  public readonly name: string;
-
-  /**
-   * Provided logger
-   */
-  private readonly logger: ILogger;
-
-  /**
-   * Attributes which can be used for lookup a job
-   */
-  private readonly lookupAttributes: string[];
-
-  /**
-   * Queues of the Flow
-   */
-  private readonly queues: Queue[];
-
-  /**
-   * Workers of the Flow
+   * Worker instances
    */
   private workers: IStartable[] = [];
 
@@ -66,26 +37,26 @@ export default class Flow<
   private readonly redis: RedisClient;
 
   /**
+   * Provided logger
+   */
+  private readonly logger: ILogger;
+
+  /**
    * Provided correlator
    */
   private readonly correlator: ICorrelator;
 
-  /**
-   * Set the basic options, initialize queues and redis client
-   * @param options parameters of AccessFlow
-   */
-  constructor(options: FlowOptions) {
-    const { name, logger, redisClientOptions, queueOptions, lookupAttributes } =
-      options;
+  constructor(options: {
+    redisClientOptions: RedisClientOptions;
+    logger: ILogger;
+    correlator: ICorrelator;
+  }) {
+    const { logger, redisClientOptions } = options;
 
-    this.name = name;
     this.logger = logger;
-    this.lookupAttributes = lookupAttributes;
     this.redisClientOptions = redisClientOptions;
     this.redis = createClient(redisClientOptions);
     this.correlator = options.correlator;
-
-    this.queues = queueOptions.map((qo) => new Queue(qo));
   }
 
   /**
@@ -103,14 +74,36 @@ export default class Flow<
   };
 
   /**
+   * Connect and start all workers
+   */
+  public startAll = async () => {
+    await this.connect();
+    await Promise.all(this.workers.map((w) => w.connect()));
+    await Promise.all(this.workers.map((w) => w.start()));
+  };
+
+  /**
+   * Stop and disconnect all workers
+   */
+  public stopAll = async () => {
+    await Promise.all(this.workers.map((w) => w.stop()));
+    await Promise.all(this.workers.map((w) => w.disconnect()));
+    await this.disconnect();
+  };
+
+  /**
    * Create a job and put it in the first queue
    * @param options parameters of the flow
    * @returns the job's id
    */
-  public createJob = async (options: CreateJobOptions): Promise<string> => {
+  // eslint-disable-next-line no-undef
+  public createJob = async <FlowName extends FlowNames>(
+    flowName: FlowName,
+    options: FlowTypes[FlowName]["createJobOptions"]
+  ): Promise<string> => {
     // generate id for the job
-    const jobId = uuidv7();
-    const jobKey = keyFormatter.job(this.name, jobId);
+    const jobId = generateJobId(flowName);
+    const jobKey = keyFormatter.job(jobId);
 
     const transaction = this.redis
       .multi()
@@ -120,19 +113,30 @@ export default class Flow<
         objectToStringEntries({
           ...options,
           correlationId: this.correlator.getId(),
+          flowName,
         })
       )
       .expire(jobKey, DEFAULT_KEY_EXPIRY_SEC);
 
     // add lookup keys
-    const lookupKeys = getLookupKeys(this.name, options, this.lookupAttributes);
+    const lookupKeys = getLookupKeys(
+      flowName,
+      options,
+      flows[flowName].lookupAttributes
+    );
     lookupKeys.forEach((lookupKey) => {
       transaction.rPush(lookupKey, jobId);
       transaction.expire(lookupKey, DEFAULT_KEY_EXPIRY_SEC);
     });
 
     // put to the first queue
-    transaction.rPush(this.queues[0].waitingQueueKey, jobId);
+    transaction.rPush(
+      keyFormatter.waitingQueueName(
+        flows[flowName].queues[0].name,
+        options.priority
+      ),
+      jobId
+    );
 
     // execute transaction
     await transaction.exec();
@@ -140,9 +144,12 @@ export default class Flow<
     return jobId;
   };
 
-  public deleteJob = async (jobId: string): Promise<number[]> => {
+  public deleteJob = async <FlowName extends FlowNames>(
+    flowName: FlowName,
+    jobId: string
+  ): Promise<number[]> => {
     // fetch the job
-    const jobKey = keyFormatter.job(this.name, jobId);
+    const jobKey = keyFormatter.job(jobId);
     const jobRaw = await this.redis.hGetAll(jobKey);
 
     if (!jobRaw) {
@@ -152,7 +159,11 @@ export default class Flow<
     const job = parseObject(jobRaw);
 
     const transaction = this.redis.multi();
-    const lookupKeys = getLookupKeys(this.name, job, this.lookupAttributes);
+    const lookupKeys = getLookupKeys(
+      flowName,
+      job,
+      flows[flowName].lookupAttributes
+    );
     lookupKeys.forEach((lookupKey) => {
       transaction.lRem(lookupKey, 1, jobId);
     });
@@ -168,14 +179,10 @@ export default class Flow<
    * @param resolveChildren whether include child jobs (not just their keys)
    * @returns jobs
    */
-  private getJobs = async (
-    flowName: string,
-    jobIds: string[],
-    resolveChildren: boolean
-  ) => {
+  private getJobs = async (jobIds: string[], resolveChildren: boolean) => {
     const transaction = this.redis.multi();
     jobIds.forEach((jobId) => {
-      const jobKey = keyFormatter.job(flowName, jobId);
+      const jobKey = keyFormatter.job(jobId);
       transaction.hGetAll(jobKey);
     });
     const rawJobs = await transaction.exec();
@@ -201,8 +208,8 @@ export default class Flow<
                   const parentQueueChildIdPairs = value.map((v) => {
                     // the child job's "flow" the middle part is the parent queue's name
                     const parentQueueName = v.split(":").slice(1, -1).join(":");
-                    // we need the last part, the uuid without the prefixes
-                    const childId = v.split(":").pop();
+                    // the childId is the flowName plus a uuid, so we cut the "job:" prefix
+                    const childId = v.split(":").slice(1).join(":");
 
                     return { parentQueueName, childId };
                   });
@@ -219,8 +226,7 @@ export default class Flow<
 
                   const children = await Promise.all(
                     Array.from(childIdsByParentQueueName.entries()).map(
-                      ([parentQueueName, childIds]) =>
-                        this.getJobs(parentQueueName, childIds, true)
+                      ([, childIds]) => this.getJobs(childIds, true)
                     )
                   ).then((x) => x.flat());
 
@@ -244,8 +250,9 @@ export default class Flow<
    * @param resolveChildren whether include child jobs (not just their keys)
    * @returns jobs
    */
-  public getJobsByKey = async (
-    keyName: LookupAttributes,
+  public getJobsByKey = async <FlowName extends FlowNames>(
+    flowName: FlowName,
+    keyName: FlowTypes[FlowName]["lookupAttributes"],
     value: string | number,
     resolveChildren: boolean
   ): Promise<Record<string, any>[]> => {
@@ -255,12 +262,12 @@ export default class Flow<
     }
 
     const jobIds = await this.redis.lRange(
-      keyFormatter.lookup(this.name, keyName, value),
+      keyFormatter.lookup(flowName, keyName, value),
       0,
       -1
     );
 
-    return this.getJobs(this.name, jobIds, resolveChildren);
+    return this.getJobs(jobIds, resolveChildren);
   };
 
   /**
@@ -272,21 +279,24 @@ export default class Flow<
    * @param blockTimeoutSec Maximum number of seconds to wait for job before checking status (seconds)
    * @returns The workers
    */
-  public createWorkers = <QueueJob extends FlowJob = FlowJob>(
+  public createWorkers = <
+    FlowName extends FlowNames,
+    QueueJob extends FlowTypes[FlowName]["job"]
+  >(
+    flowName: FlowName,
     queueName: QueueJob["queueName"],
     workerFunction: WorkerFunction<QueueJob["params"], QueueJob["result"]>,
     count: number,
     lockTimeSec?: number,
     blockTimeoutSec?: number
   ): Worker<QueueJob["params"], QueueJob["result"]>[] => {
-    const queue = this.queues.find((q) => q.name === queueName);
+    const queue = flows[flowName].queues.find((q) => q.name === queueName);
 
     const createdWorkers: Worker<QueueJob["params"], QueueJob["result"]>[] = [];
     for (let i = 0; i < count; i += 1) {
       const worker = new Worker<QueueJob["params"], QueueJob["result"]>({
-        flowName: this.name,
         workerFunction,
-        queues: [queue],
+        queue,
         lockTimeSec,
         blockTimeoutSec,
         redisClientOptions: this.redisClientOptions,
@@ -309,31 +319,34 @@ export default class Flow<
    * @param blockTimeoutSec Maximum number of seconds to wait for job before checking status (seconds)
    * @returns The parent workers
    */
-  public createParentWorkers = <QueueJob extends FlowJob = FlowJob>(
+  public createParentWorkers = <
+    FlowName extends FlowNames,
+    QueueJob extends FlowTypes[FlowName]["job"]
+  >(
+    flowName: FlowName,
     queueName: QueueJob["queueName"],
     count: number,
     lockTimeSec?: number,
     blockTimeoutSec?: number
   ): ParentWorker[] => {
-    const queue = this.queues.find((q) => q.name === queueName);
+    const queue = flows[flowName].queues.find((q) => q.name === queueName);
 
-    const createdWorkers: ParentWorker[] = [];
+    const createdParentWorkers: ParentWorker[] = [];
     for (let i = 0; i < count; i += 1) {
       const worker = new ParentWorker({
-        flowName: this.name,
-        queues: [queue],
+        queue,
         lockTimeSec,
         blockTimeoutSec,
         redisClientOptions: this.redisClientOptions,
         logger: this.logger,
         correlator: this.correlator,
       });
-      createdWorkers.push(worker);
+      createdParentWorkers.push(worker);
     }
 
-    this.workers.push(...createdWorkers);
+    this.workers.push(...createdParentWorkers);
 
-    return createdWorkers;
+    return createdParentWorkers;
   };
 
   /**
@@ -346,7 +359,11 @@ export default class Flow<
    * @param blockTimeoutSec Maximum number of seconds to wait for job before checking status (seconds)
    * @returns The workers
    */
-  public createChildWorkers = <QueueJob extends FlowJob = FlowJob>(
+  public createChildWorkers = <
+    FlowName extends FlowNames,
+    QueueJob extends FlowTypes[FlowName]["job"]
+  >(
+    flowName: FlowName,
     parentQueueName: QueueJob["queueName"],
     childName: ArrayElement<QueueJob["children"]>["queueName"],
     workerFunction: WorkerFunction<QueueJob["params"], QueueJob["result"]>,
@@ -358,16 +375,15 @@ export default class Flow<
       parentQueueName,
       childName
     );
-    const queue = this.queues
+    const queue = flows[flowName].queues
       .find((q) => q.name === parentQueueName)
       .children.find((c) => c.name === childQueueName);
 
     const createdWorkers: Worker<QueueJob["params"], QueueJob["result"]>[] = [];
     for (let i = 0; i < count; i += 1) {
       const worker = new Worker<QueueJob["params"], QueueJob["result"]>({
-        flowName: childQueueName,
         workerFunction,
-        queues: [queue],
+        queue,
         lockTimeSec,
         blockTimeoutSec,
         redisClientOptions: this.redisClientOptions,
@@ -380,23 +396,5 @@ export default class Flow<
     this.workers.push(...createdWorkers);
 
     return createdWorkers;
-  };
-
-  /**
-   * Connect and start all workers
-   */
-  public startAll = async () => {
-    await this.connect();
-    await Promise.all(this.workers.map((w) => w.connect()));
-    await Promise.all(this.workers.map((w) => w.start()));
-  };
-
-  /**
-   * Stop and disconnect all workers
-   */
-  public stopAll = async () => {
-    await Promise.all(this.workers.map((w) => w.stop()));
-    await Promise.all(this.workers.map((w) => w.disconnect()));
-    await this.disconnect();
   };
 }
