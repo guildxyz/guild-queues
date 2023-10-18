@@ -131,13 +131,23 @@ export default class Worker<
    */
   private async lease(priority: number): Promise<Params> {
     // move a job from the waiting queue to the processing queue
-    const jobId: string = await this.blockingRedis.blMove(
-      keyFormatter.waitingQueueName(this.queue.name, priority),
-      keyFormatter.processingQueueName(this.queue.name, priority),
-      "LEFT",
-      "RIGHT",
-      this.blockTimeoutSec
-    );
+    let jobId: string;
+    if (priority === 1) {
+      jobId = await this.blockingRedis.blMove(
+        keyFormatter.waitingQueueName(this.queue.name, priority),
+        keyFormatter.processingQueueName(this.queue.name, priority),
+        "LEFT",
+        "RIGHT",
+        this.blockTimeoutSec
+      );
+    } else {
+      jobId = await this.blockingRedis.lMove(
+        keyFormatter.waitingQueueName(this.queue.name, priority),
+        keyFormatter.processingQueueName(this.queue.name, priority),
+        "LEFT",
+        "RIGHT"
+      );
+    }
 
     // skip the rest if no job is found due to timeout
     if (!jobId) {
@@ -407,6 +417,24 @@ export default class Worker<
               if (isLimited) {
                 return;
               }
+
+              if ((job as any).delay) {
+                const jobKey = keyFormatter.job(job.id);
+                const groupName = (job as any)[this.queue.limiter.groupJobKey]; // it's probably not worth the time now to make a new generic type param for this in the Worker
+                const delayEnqueuedKey = keyFormatter.delayEnqueued(
+                  this.queue.name,
+                  groupName
+                );
+                await this.nonBlockingRedis
+                  .multi()
+                  .decr(delayEnqueuedKey)
+                  .hDel(jobKey, [
+                    IS_DELAY_FIELD,
+                    DELAY_TIMESTAMP_FIELD,
+                    DELAY_REASON_FIELD,
+                  ])
+                  .exec();
+              }
             }
 
             let result: Result;
@@ -425,15 +453,6 @@ export default class Worker<
               } else {
                 await this.handleWorkerFunctionError(job.id, priority, error);
               }
-            }
-
-            if (this.queue.limiter && (job as any).delay) {
-              const jobKey = keyFormatter.job(job.id);
-              await this.nonBlockingRedis.hDel(jobKey, [
-                IS_DELAY_FIELD,
-                DELAY_TIMESTAMP_FIELD,
-                DELAY_REASON_FIELD,
-              ]);
             }
 
             if (result) {
@@ -593,7 +612,7 @@ export default class Worker<
         DELAY_TIMESTAMP_FIELD,
         readyTimestamp,
         DELAY_REASON_FIELD,
-        reason,
+        `"${reason}"`,
       ])
       .del(lockKey)
       .exec();

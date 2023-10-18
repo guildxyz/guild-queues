@@ -111,7 +111,7 @@ export type BulkPrepareManageRewardParams = StatusUpdateFlowParams &
 
 export type BulkPrepareManageRewardResult = StatusUpdateFlowResult & {
   nextQueue?: never;
-  "children:status-update-manage-reward:params": ManageRewardChildParams[];
+  "children:manage-reward:params": ManageRewardChildParams[];
 };
 
 export type StatusUpdateResultResult = AccessResultResult;

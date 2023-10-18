@@ -81,14 +81,15 @@ export default class Queue {
       "flowName",
       "priority",
     ];
+    if (delayable) {
+      defaultAttributesToGet.push("delay");
+    }
+    if (limiter?.groupJobKey) {
+      defaultAttributesToGet.push(limiter.groupJobKey as any);
+    }
     this.attributesToGet = [
       ...new Set([...this.attributesToGet, ...defaultAttributesToGet]),
     ];
-
-    // set limiter groupJobKey
-    if (limiter?.groupJobKey) {
-      this.attributesToGet = [...new Set(attributesToGet), limiter.groupJobKey];
-    }
 
     // init children
     this.children =

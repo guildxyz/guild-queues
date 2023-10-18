@@ -95,6 +95,7 @@ export type BaseJobParams = {
   id: string;
   flowName: FlowNames;
   priority: number;
+  delay?: boolean;
 };
 
 /**
@@ -112,6 +113,7 @@ export type BaseJobResult = {
  */
 export type BaseChildParam = AnyObject & {
   childName: string;
+  priority: number;
 };
 
 /**

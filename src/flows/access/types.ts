@@ -170,6 +170,7 @@ export type ManageRewardBase = {
  */
 export type ManageRewardChildParams = {
   childName: string;
+  priority: number;
   platformGuildId: string;
   manageRewardAction: ManageRewardBase; // nested, because this way we only need to HGET one field
 };

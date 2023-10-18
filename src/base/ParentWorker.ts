@@ -79,11 +79,11 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
         const childQueueKey = keyFormatter.childWaitingQueueName(
           parentQueueName,
           param.childName,
-          job.priority
+          param.priority || job.priority
         );
 
         const childJob = param;
-        childJob.priority = job.priority;
+        childJob.priority = childJob.priority || job.priority;
         childJob.flowName = parentQueueName;
         delete childJob.childName;
 

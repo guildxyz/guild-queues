@@ -10,7 +10,7 @@ import { delay, keyFormatter } from "../src/utils";
 const INTERVAL_MS = 3000;
 const GROUP_KEY = "type";
 const RESERVOIR = 3;
-const QUEUE_INDEX = 0;
+const PRIORITY = 1;
 
 const queue = new Queue({
   queueName: "testQueue",
@@ -25,8 +25,7 @@ const queue = new Queue({
 const worker = new Worker({
   correlator: testCorrelator,
   logger: testLogger,
-  flowName: "testFlow",
-  queues: [queue],
+  queue,
   redisClientOptions: testRedisClientOptions,
   workerFunction: async () => ({}),
 });
@@ -56,10 +55,13 @@ const testDelayJobIfLimited = async (amount: number, groupCount: number) => {
   await Promise.all(
     [...Array(amount).keys()].map(async (i) => {
       // eslint-disable-next-line dot-notation
-      await worker["delayJobIfLimited"](QUEUE_INDEX, {
-        id: `${i}`,
-        type: `${i % groupCount}`,
-      } as any);
+      await worker["delayJobIfLimited"](
+        {
+          id: `${i}`,
+          type: `${i % groupCount}`,
+        } as any,
+        PRIORITY
+      );
     })
   );
 
