@@ -483,6 +483,7 @@ export default class Worker<
                 ...propertiesToLog,
                 time,
                 job,
+                failed: !result,
               });
 
               if (result) {
