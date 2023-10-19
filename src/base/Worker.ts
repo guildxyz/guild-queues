@@ -449,7 +449,7 @@ export default class Worker<
           error.readyTimestamp
         );
       } else {
-        await this.handleWorkerFunctionError(job.id, priority, error);
+        await this.handleWorkerFunctionError(job, priority, error);
       }
     }
     return result;
@@ -459,6 +459,8 @@ export default class Worker<
    * Loop for executing jobs until the Worker is running
    */
   private eventLoopFunction = async () => {
+    const propertiesToLog = { queueName: this.queue.name, workerId: this.id };
+
     while (this.status === "running") {
       try {
         const { job, priority } = await this.leaseWrapper();
@@ -473,7 +475,15 @@ export default class Worker<
               const isDelayed = await this.delayWrapper(job, priority);
               if (isDelayed) return;
 
+              const start = performance.now();
               const result = await this.executeWrapper(job, priority);
+              const time = performance.now() - start;
+              this.logger.info("Job executed", {
+                ...DEFAULT_LOG_META,
+                ...propertiesToLog,
+                time,
+                job,
+              });
 
               if (result) {
                 await this.complete(job, priority, result);
@@ -485,8 +495,7 @@ export default class Worker<
       } catch (error) {
         this.logger.error("Event loop uncaught error", {
           ...DEFAULT_LOG_META,
-          queueName: this.queue.name,
-          workerId: this.id,
+          ...propertiesToLog,
           error,
         });
       }
@@ -542,16 +551,17 @@ export default class Worker<
    * @param error The error thrown by the workerFunction
    */
   private handleWorkerFunctionError = async (
-    jobId: string,
+    job: Params,
     priority: number,
     error: any
   ) => {
     const propertiesToLog = {
       ...DEFAULT_LOG_META,
       queueName: this.queue.name,
-      flowName: extractFlowNameFromJobId(jobId),
+      flowName: extractFlowNameFromJobId(job.id),
       workerId: this.id,
-      jobId,
+      jobId: job.id,
+      job,
     };
 
     // log the error
@@ -560,7 +570,7 @@ export default class Worker<
       error,
     });
 
-    const jobKey = keyFormatter.job(jobId);
+    const jobKey = keyFormatter.job(job.id);
     const propertiesToSave = {
       [DONE_FIELD]: true,
       [FAILED_FIELD]: true,
@@ -584,7 +594,7 @@ export default class Worker<
       .lRem(
         keyFormatter.processingQueueName(this.queue.name, priority),
         1,
-        jobId
+        job.id
       )
       .catch((err) => {
         this.logger.error("Failed to remove failed job from processing queue", {
