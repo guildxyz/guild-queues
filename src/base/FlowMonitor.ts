@@ -141,7 +141,7 @@ export default class FlowMonitor {
       ),
       this.redis.hSet(jobKey, DONE_FIELD, "true"),
       this.redis.hSet(jobKey, FAILED_FIELD, "true"),
-      this.redis.hSet(jobKey, FAILED_QUEUE_FIELD, queueName),
+      this.redis.hSet(jobKey, FAILED_QUEUE_FIELD, `"${queueName}"`),
       this.redis.hSet(
         jobKey,
         FAILED_ERROR_MSG_FIELD,

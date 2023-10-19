@@ -155,7 +155,7 @@ export default class QueuesClient {
       throw new Error("Job to delete does not exist.");
     }
 
-    const job = parseObject(jobRaw);
+    const job = parseObject(jobRaw, this.logger);
 
     const transaction = this.redis.multi();
     const lookupKeys = getLookupKeys(
@@ -187,7 +187,7 @@ export default class QueuesClient {
     const rawJobs = await transaction.exec();
     let jobs: Record<string, any>[] = rawJobs.map((rawJob, index) => ({
       id: jobIds[index],
-      ...parseObject(rawJob as any),
+      ...parseObject(rawJob as any, this.logger),
     }));
 
     // add more variables, separate code ***clean code***

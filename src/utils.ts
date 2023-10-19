@@ -1,8 +1,9 @@
 import { uuidv7 } from "uuidv7";
-import { AnyObject, ICorrelator, RedisClient } from "./base/types";
+import { AnyObject, ICorrelator, ILogger, RedisClient } from "./base/types";
 import { FlowNames } from "./flows/types";
 import {
   COUNTER_KEY_PREFIX,
+  DEFAULT_LOG_META,
   JOB_KEY_PREFIX,
   LOCK_KEY_PREFIX,
   QUEUE_KEY_PREFIX,
@@ -13,9 +14,22 @@ import {
  * @param obj Object retrieved by HGETs or HGETALL
  * @returns Fully parsed object
  */
-export const parseObject = (obj: { [key: string]: string }) =>
+export const parseObject = (obj: { [key: string]: string }, logger: ILogger) =>
   Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [key, JSON.parse(value)])
+    Object.entries(obj).map(([key, value]) => {
+      try {
+        const parsed = JSON.parse(value);
+        return [key, parsed];
+      } catch (error) {
+        logger.error("Cannot parse object (queues)", {
+          ...DEFAULT_LOG_META,
+          key,
+          value,
+          obj,
+        });
+        return [key, null];
+      }
+    })
   );
 
 /**
