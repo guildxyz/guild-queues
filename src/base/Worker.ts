@@ -19,6 +19,7 @@ import {
   hSetMore,
   extractFlowNameFromJobId,
   keyFormatter,
+  bindIdToCorrelator,
 } from "../utils";
 import {
   DEFAULT_LOCK_SEC,
@@ -182,6 +183,7 @@ export default class Worker<
       ...DEFAULT_LOG_META,
       ...propertiesToLog,
       jobId,
+      correlationId: attributes.correlationId,
     });
 
     // return job with id
@@ -387,80 +389,100 @@ export default class Worker<
     return result;
   };
 
+  private leaseWrapper = async () => {
+    let job: Params;
+    let priority = DEFAULT_PRIORITY;
+    while (this.status === "running") {
+      job = await this.lease(priority);
+      if (job) {
+        break;
+      } else {
+        priority += 1;
+        if (priority > this.queue.priorities) {
+          priority = DEFAULT_PRIORITY;
+        }
+      }
+    }
+    return { job, priority };
+  };
+
+  private delayWrapper = async (job: Params, priority: number) => {
+    if (this.queue.limiter) {
+      const isLimited = await this.delayJobIfLimited(job, priority);
+      if (isLimited) {
+        return true;
+      }
+
+      if ((job as any).delay) {
+        const jobKey = keyFormatter.job(job.id);
+        const groupName = (job as any)[this.queue.limiter.groupJobKey]; // it's probably not worth the time now to make a new generic type param for this in the Worker
+        const delayEnqueuedKey = keyFormatter.delayEnqueued(
+          this.queue.name,
+          groupName
+        );
+        await this.nonBlockingRedis
+          .multi()
+          .decr(delayEnqueuedKey)
+          .hDel(jobKey, [
+            IS_DELAY_FIELD,
+            DELAY_TIMESTAMP_FIELD,
+            DELAY_REASON_FIELD,
+          ])
+          .exec();
+      }
+    }
+
+    return false;
+  };
+
+  private executeWrapper = async (job: Params, priority: number) => {
+    let result: Result;
+    // this isolates error boundaries between "consumer-error" and "queue-lib-error"
+    try {
+      result = await this.executeWithDeadline(job);
+    } catch (error: any) {
+      if (error instanceof DelayError) {
+        await this.delayJob(
+          job.id,
+          priority,
+          error.message,
+          error.readyTimestamp
+        );
+      } else {
+        await this.handleWorkerFunctionError(job.id, priority, error);
+      }
+    }
+    return result;
+  };
+
   /**
    * Loop for executing jobs until the Worker is running
    */
   private eventLoopFunction = async () => {
     while (this.status === "running") {
       try {
-        // generate UUID and pass create a correlator context
-        await this.correlator.withId(uuidv7(), async () => {
-          let job: Params;
-          let priority = DEFAULT_PRIORITY;
+        const { job, priority } = await this.leaseWrapper();
 
-          while (this.status === "running") {
-            job = await this.lease(priority);
+        await bindIdToCorrelator(
+          this.correlator,
+          job.correlationId,
+          async () => {
+            // if there's a job execute it
             if (job) {
-              break;
-            } else {
-              priority += 1;
-              if (priority > this.queue.priorities) {
-                priority = DEFAULT_PRIORITY;
-              }
-            }
-          }
-
-          // if there's a job execute it
-          if (job) {
-            if (this.queue.limiter) {
-              const isLimited = await this.delayJobIfLimited(job, priority);
-              if (isLimited) {
+              const isDelayed = await this.delayWrapper(job, priority);
+              if (isDelayed) {
                 return;
               }
 
-              if ((job as any).delay) {
-                const jobKey = keyFormatter.job(job.id);
-                const groupName = (job as any)[this.queue.limiter.groupJobKey]; // it's probably not worth the time now to make a new generic type param for this in the Worker
-                const delayEnqueuedKey = keyFormatter.delayEnqueued(
-                  this.queue.name,
-                  groupName
-                );
-                await this.nonBlockingRedis
-                  .multi()
-                  .decr(delayEnqueuedKey)
-                  .hDel(jobKey, [
-                    IS_DELAY_FIELD,
-                    DELAY_TIMESTAMP_FIELD,
-                    DELAY_REASON_FIELD,
-                  ])
-                  .exec();
+              const result = await this.executeWrapper(job, priority);
+
+              if (result) {
+                await this.complete(job, priority, result);
               }
             }
-
-            let result: Result;
-
-            // this isolates error boundaries between "consumer-error" and "queue-lib-error"
-            try {
-              result = await this.executeWithDeadline(job);
-            } catch (error: any) {
-              if (error instanceof DelayError) {
-                await this.delayJob(
-                  job.id,
-                  priority,
-                  error.message,
-                  error.readyTimestamp
-                );
-              } else {
-                await this.handleWorkerFunctionError(job.id, priority, error);
-              }
-            }
-
-            if (result) {
-              await this.complete(job, priority, result);
-            }
+            // else check if worker is still running and retry
           }
-          // else check if worker is still running and retry
-        });
+        );
       } catch (error) {
         this.logger.error("Event loop uncaught error", {
           ...DEFAULT_LOG_META,

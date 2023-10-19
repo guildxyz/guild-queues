@@ -80,6 +80,7 @@ export default class Queue {
     const defaultAttributesToGet: (keyof BaseJobParams)[] = [
       "flowName",
       "priority",
+      "correlationId",
     ];
     if (delayable) {
       defaultAttributesToGet.push("delay");

@@ -1,5 +1,5 @@
 import { uuidv7 } from "uuidv7";
-import { AnyObject, RedisClient } from "./base/types";
+import { AnyObject, ICorrelator, RedisClient } from "./base/types";
 import { FlowNames } from "./flows/types";
 import {
   COUNTER_KEY_PREFIX,
@@ -146,4 +146,12 @@ export const getLookupKeys = (
 export const generateJobId = (flowName: string) => `${flowName}:${uuidv7()}`;
 
 export const extractFlowNameFromJobId = (jobId: string) =>
-  jobId.split(":")?.[0];
+  jobId.split(":")?.slice(0, -1).join(":");
+
+export const bindIdToCorrelator = async (
+  correlator: ICorrelator,
+  id: string,
+  callback: () => Promise<void>
+) => {
+  (correlator as any)()({ get: () => id }, null, callback);
+};

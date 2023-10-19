@@ -112,7 +112,6 @@ export default class QueuesClient {
         jobKey,
         objectToStringEntries({
           ...options,
-          correlationId: this.correlator.getId(),
           flowName,
         })
       )

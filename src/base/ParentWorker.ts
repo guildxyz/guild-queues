@@ -85,6 +85,7 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
         const childJob = param;
         childJob.priority = childJob.priority || job.priority;
         childJob.flowName = parentQueueName;
+        childJob.correlationId = job.correlationId;
         delete childJob.childName;
 
         // create child job state

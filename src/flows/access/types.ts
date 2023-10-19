@@ -21,6 +21,7 @@ export type CreateAccessJobOptions = {
   manageRewards: boolean;
   forceRewardActions: boolean;
   onlyForThisPlatform?: string;
+  correlationId: string;
 };
 
 /**
@@ -38,6 +39,7 @@ export type AccessFlowOptions = {
 export type AccessFlowParams = {
   id: string;
   flowName: "access";
+  correlationId: string;
   priority: number;
   userId: number;
   guildId: number;

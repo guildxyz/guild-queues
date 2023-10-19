@@ -34,7 +34,9 @@ export interface IStartable {
 /**
  * Can bind and provide correlation id
  */
-export type ICorrelator = { withId(id: any, work: any): any; getId: () => any };
+export type ICorrelator = {
+  getId: () => any;
+};
 
 /**
  * Datadog's DogStatsD interface (I would rather not import the package just for this type)
@@ -95,6 +97,7 @@ export type BaseJobParams = {
   id: string;
   flowName: FlowNames;
   priority: number;
+  correlationId: string;
   delay?: boolean;
 };
 
