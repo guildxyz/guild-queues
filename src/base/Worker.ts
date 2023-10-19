@@ -462,6 +462,7 @@ export default class Worker<
     while (this.status === "running") {
       try {
         const { job, priority } = await this.leaseWrapper();
+        if (!job) break;
 
         await bindIdToCorrelator(
           this.correlator,
@@ -470,9 +471,7 @@ export default class Worker<
             // if there's a job execute it
             if (job) {
               const isDelayed = await this.delayWrapper(job, priority);
-              if (isDelayed) {
-                return;
-              }
+              if (isDelayed) return;
 
               const result = await this.executeWrapper(job, priority);
 
