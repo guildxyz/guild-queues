@@ -408,11 +408,6 @@ export default class Worker<
 
   private delayWrapper = async (job: Params, priority: number) => {
     if (this.queue.limiter) {
-      const isLimited = await this.delayJobIfLimited(job, priority);
-      if (isLimited) {
-        return true;
-      }
-
       if ((job as any).delay) {
         const jobKey = keyFormatter.job(job.id);
         const groupName = (job as any)[this.queue.limiter.groupJobKey]; // it's probably not worth the time now to make a new generic type param for this in the Worker
@@ -429,6 +424,11 @@ export default class Worker<
             DELAY_REASON_FIELD,
           ])
           .exec();
+      }
+
+      const isLimited = await this.delayJobIfLimited(job, priority);
+      if (isLimited) {
+        return true;
       }
     }
 
