@@ -148,16 +148,15 @@ export default class QueuesClient {
     jobId: string
   ): Promise<number[]> => {
     // fetch the job
-    const jobKey = keyFormatter.job(jobId);
-    const jobRaw = await this.redis.hGetAll(jobKey);
+    const [job] = await this.getJobs([jobId], false);
 
-    if (!jobRaw) {
+    if (!job) {
       throw new Error("Job to delete does not exist.");
     }
 
-    const job = parseObject(jobRaw, this.logger);
-
     const transaction = this.redis.multi();
+
+    // remove job from the the lookup keys
     const lookupKeys = getLookupKeys(
       flowName,
       job,
@@ -167,7 +166,18 @@ export default class QueuesClient {
       transaction.lRem(lookupKey, 1, jobId);
     });
 
+    // remove the job's hash
+    const jobKey = keyFormatter.job(job.id);
     transaction.del(jobKey);
+
+    // remove children
+    Object.entries(job).map(async ([key, value]) => {
+      if (key.match(/^children:.*:jobs$/) && value instanceof Array) {
+        value.forEach((childJobId) => {
+          transaction.del(childJobId);
+        });
+      }
+    });
 
     return transaction.exec() as Promise<number[]>; // necessary, unless throws: "The inferred type of 'deleteJob' cannot be named without a reference to"
   };
