@@ -415,7 +415,8 @@ export default class Worker<
           this.queue.name,
           groupName
         );
-        await this.nonBlockingRedis
+
+        const transactionResult = await this.nonBlockingRedis
           .multi()
           .decr(delayEnqueuedKey)
           .hDel(jobKey, [
@@ -424,6 +425,15 @@ export default class Worker<
             DELAY_REASON_FIELD,
           ])
           .exec();
+
+        this.logger.info("Delay enqueued counter decremented", {
+          ...DEFAULT_LOG_META,
+          queueName: this.queue.name,
+          workerId: this.id,
+          jobId: job.id,
+          priority,
+          transactionResult,
+        });
       }
 
       const isLimited = await this.delayJobIfLimited(job, priority);
