@@ -1,4 +1,5 @@
 import { BaseJobParams } from "../../base/types";
+import { DONE_FIELD } from "../../static";
 import {
   AccessCheckChildParams,
   AccessCheckParams,
@@ -8,8 +9,7 @@ import {
   AccessResultResult,
   CreateAccessJobOptions,
   ManageRewardChildParams,
-  ManageRewardParams,
-  ManageRewardResult,
+  ManageRewardJob,
   RequirementError,
 } from "../access/types";
 
@@ -26,7 +26,10 @@ export type StatusUpdateFlowOptions = AccessFlowOptions;
 
 /* --------------------------- params and results --------------------------- */
 
-export type StatusUpdateFlowParams = Omit<AccessFlowParams, "userId">;
+export type StatusUpdateFlowParams = Omit<
+  AccessFlowParams,
+  "userId" | "flowName"
+> & { flowName: "status-update" };
 
 export type StatusUpdateFlowResult = {
   // eslint-disable-next-line no-use-before-define
@@ -49,10 +52,11 @@ export type StatusUpdatePreparationResult = StatusUpdateFlowResult &
       }
   );
 
-export type BulkAccessCheckParams = StatusUpdatify<AccessCheckParams>;
+export type BulkAccessCheckParams = StatusUpdatify<AccessCheckParams> &
+  BaseJobParams;
 
 export type BulkAccessCheckResult = StatusUpdateFlowResult & {
-  done: true;
+  [DONE_FIELD]: true;
   requirementId: number;
   errors?: RequirementError[];
   users: {
@@ -107,7 +111,7 @@ export type BulkPrepareManageRewardParams = StatusUpdateFlowParams &
 
 export type BulkPrepareManageRewardResult = StatusUpdateFlowResult & {
   nextQueue?: never;
-  "children:status-update-manage-reward:params": ManageRewardChildParams[];
+  "children:manage-reward:params": ManageRewardChildParams[];
 };
 
 export type StatusUpdateResultResult = AccessResultResult;
@@ -149,29 +153,6 @@ export type BulkPrepareManageRewardJob = {
   result: BulkPrepareManageRewardResult;
 };
 
-export type StatusUpdateManageRewardJob = {
-  queueName: "status-update-manage-reward";
-  children: [
-    {
-      queueName: "discord";
-    },
-    {
-      queueName: "telegram";
-    },
-    {
-      queueName: "github";
-    },
-    {
-      queueName: "google";
-    },
-    {
-      queueName: "nft";
-    }
-  ];
-  params: ManageRewardParams;
-  result: ManageRewardResult;
-};
-
 export type StatusUpdateResultJob = {
   queueName: "status-update-result";
   children: [];
@@ -185,5 +166,7 @@ export type StatusUpdateJob =
   | BulkAccessLogicJob
   | BulkUpdateMembershipJob
   | BulkPrepareManageRewardJob
-  | StatusUpdateManageRewardJob
+  | ManageRewardJob
   | StatusUpdateResultJob;
+
+export type StatusUpdateLookupAttributes = "userIds" | "roleIds" | "guildId";

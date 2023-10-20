@@ -6,6 +6,7 @@ import {
   BaseJobResult,
   ICorrelator,
 } from "../../base/types";
+import { DONE_FIELD } from "../../static";
 
 /**
  * Options to create flows in the AccessFlow
@@ -14,12 +15,13 @@ export type CreateAccessJobOptions = {
   userId: number;
   roleIds: number[];
   guildId: number;
-  priority?: number;
+  priority: number;
   recheckAccess: boolean;
   updateMemberships: boolean;
   manageRewards: boolean;
   forceRewardActions: boolean;
   onlyForThisPlatform?: string;
+  correlationId: string;
 };
 
 /**
@@ -36,6 +38,9 @@ export type AccessFlowOptions = {
  */
 export type AccessFlowParams = {
   id: string;
+  flowName: "access";
+  correlationId: string;
+  priority: number;
   userId: number;
   guildId: number;
   roleIds: number[];
@@ -98,7 +103,7 @@ export type RequirementError = {
  * Result of the access-check queue
  */
 export type AccessCheckResult = AccessFlowResult & {
-  done: true;
+  [DONE_FIELD]: true;
   requirementId: number;
   access: boolean;
   amount?: number;
@@ -167,6 +172,8 @@ export type ManageRewardBase = {
  */
 export type ManageRewardChildParams = {
   childName: string;
+  priority: number;
+  platformGuildId: string;
   manageRewardAction: ManageRewardBase; // nested, because this way we only need to HGET one field
 };
 
@@ -174,6 +181,7 @@ export type ManageRewardChildParams = {
  * Manage reward child job params
  */
 export type ManageRewardParams = BaseJobParams & {
+  platformGuildId: string;
   manageRewardAction: ManageRewardBase;
 };
 
@@ -181,7 +189,7 @@ export type ManageRewardParams = BaseJobParams & {
  * Manage reward child result
  */
 export type ManageRewardResult = BaseJobResult & {
-  done: true;
+  [DONE_FIELD]: true;
   success: boolean;
   errorMsg?: string;
 };
@@ -208,7 +216,7 @@ export type PrepareManageRewardResult = AccessFlowResult & {
  */
 export type AccessResultResult = AccessFlowResult & {
   nextQueue?: never;
-  done: true;
+  [DONE_FIELD]: true;
 };
 
 /**
@@ -298,3 +306,5 @@ export type AccessFlowJob =
   | PrepareManageRewardJob
   | ManageRewardJob
   | AccessResultJob;
+
+export type AccessLookupAttributes = "userId" | "roleIds" | "guildId";

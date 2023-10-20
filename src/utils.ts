@@ -1,14 +1,35 @@
-import { AnyObject, RedisClient } from "./base/types";
-import { JOB_KEY_PREFIX, LOCK_KEY_PREFIX, QUEUE_KEY_PREFIX } from "./static";
+import { uuidv7 } from "uuidv7";
+import { AnyObject, ICorrelator, ILogger, RedisClient } from "./base/types";
+import { FlowNames } from "./flows/types";
+import {
+  COUNTER_KEY_PREFIX,
+  DEFAULT_LOG_META,
+  JOB_KEY_PREFIX,
+  LOCK_KEY_PREFIX,
+  QUEUE_KEY_PREFIX,
+} from "./static";
 
 /**
  * Parse object retrieved by HGETs or HGETALL which consists of JSON values
  * @param obj Object retrieved by HGETs or HGETALL
  * @returns Fully parsed object
  */
-export const parseObject = (obj: { [key: string]: string }) =>
+export const parseObject = (obj: { [key: string]: string }, logger: ILogger) =>
   Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [key, JSON.parse(value)])
+    Object.entries(obj).map(([key, value]) => {
+      try {
+        const parsed = JSON.parse(value);
+        return [key, parsed];
+      } catch (error) {
+        logger.error("Cannot parse object (queues)", {
+          ...DEFAULT_LOG_META,
+          key,
+          value,
+          obj,
+        });
+        return [key, null];
+      }
+    })
   );
 
 /**
@@ -71,10 +92,9 @@ export const delay = (ms: number): Promise<void> =>
   });
 
 export const keyFormatter = {
-  job: (flowName: string, jobId: string) =>
-    `${JOB_KEY_PREFIX}:${flowName}:${jobId}`,
+  job: (jobId: string) => `${JOB_KEY_PREFIX}:${jobId}`,
   lookup: (
-    flowName: string,
+    flowName: FlowNames,
     lookupAttribute: string,
     lookupAttributeValue: string | number
   ) =>
@@ -83,21 +103,32 @@ export const keyFormatter = {
     `${LOCK_KEY_PREFIX}:${queueName}:${jobId}`,
   childQueueName: (parentQueueName: string, childName: string) =>
     `${parentQueueName}:${childName}`,
-  processingQueueName: (queueName: string) =>
-    `${QUEUE_KEY_PREFIX}:${queueName}:processing`,
-  waitingQueueName: (queueName: string) =>
-    `${QUEUE_KEY_PREFIX}:${queueName}:waiting`,
+  processingQueueName: (queueName: string, priority: number) =>
+    `${QUEUE_KEY_PREFIX}:${queueName}:${priority}:processing`,
+  waitingQueueName: (queueName: string, priority: number) =>
+    `${QUEUE_KEY_PREFIX}:${queueName}:${priority}:waiting`,
+  delayedQueueName: (queueName: string, priority: number) =>
+    `${QUEUE_KEY_PREFIX}:${queueName}:${priority}:delayed`,
   childrenParams: (parentQueueName: string) =>
     `children:${parentQueueName}:params`,
   childrenJobs: (parentQueueName: string) => `children:${parentQueueName}:jobs`,
-  childJob: (childGroup: string, childName: string, childJobId: string) =>
-    `${JOB_KEY_PREFIX}:${childGroup}:${childName}:${childJobId}`,
-  childWaitingQueueName: (childGroup: string, childName: string) =>
-    `${QUEUE_KEY_PREFIX}:${childGroup}:${childName}:waiting`,
+  childWaitingQueueName: (
+    childGroup: string,
+    childName: string,
+    priority: number
+  ) => `${QUEUE_KEY_PREFIX}:${childGroup}:${childName}:${priority}:waiting`,
+  delayCalls: (
+    queueName: string,
+    groupName: string,
+    currentTimeWindow: number
+  ) =>
+    `${COUNTER_KEY_PREFIX}:delay:calls:${queueName}:${groupName}:${currentTimeWindow}`,
+  delayEnqueued: (queueName: string, groupName: string) =>
+    `${COUNTER_KEY_PREFIX}:delay:enqueued:${queueName}:${groupName}`,
 };
 
 export const getLookupKeys = (
-  flowName: string,
+  flowName: FlowNames,
   createJobOptions: AnyObject,
   lookupAttributes: string[]
 ) => {
@@ -124,4 +155,17 @@ export const getLookupKeys = (
     }
   });
   return lookupKeys;
+};
+
+export const generateJobId = (flowName: string) => `${flowName}:${uuidv7()}`;
+
+export const extractFlowNameFromJobId = (jobId: string) =>
+  jobId.split(":")?.slice(0, -1).join(":");
+
+export const bindIdToCorrelator = async (
+  correlator: ICorrelator,
+  id: string,
+  callback: () => Promise<void>
+) => {
+  (correlator as any)()({ get: () => id }, null, callback);
 };

@@ -1,7 +1,7 @@
 # Redis key names
 
 - `queue:<queueName>:<stage>`
-  - stage can be `waiting` or `processing`
+  - stage can be `waiting` or `processing` or `delayed`
   - list for the waiting/processing jobs
   - example: - `queue:update-membership:processing`
 - `lock:<queueName>:<jobId>`
@@ -24,5 +24,12 @@
     - `children:<parentQueueName>:jobs`
       - array of child job keys
       - these keys are checked by the parent queue periodically
+- `counter:delay:calls:<queueName>:<groupName>:<current-time-window>`
+  - the rate limit info
+  - value: number of calls in the current time window
+  - `current-time-window`: `⌊ timestamp / time-window ⌋`<br>
+    (floor of the timestamp divided by the length of the time window)
+- `counter:delay:enqueued:<queueName>:<groupName>`
+  - counter for delayed jobs per group
 - child queues and jobs names are composed by concatenating the parent queue name and the child name, separated by a column
   - example: `manage-reward:discord` (`manage-reward` parent queue, `discord` child)

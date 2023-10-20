@@ -1,7 +1,11 @@
 /* eslint-disable no-await-in-loop */
 /* eslint-disable no-constant-condition */
-import { uuidv7 } from "uuidv7";
-import { delay, keyFormatter, objectToStringEntries } from "../utils";
+import {
+  delay,
+  generateJobId,
+  keyFormatter,
+  objectToStringEntries,
+} from "../utils";
 import Worker from "./Worker";
 import {
   BaseChildParam,
@@ -14,6 +18,7 @@ import {
   DEFAULT_KEY_EXPIRY_SEC,
   DEFAULT_LOG_META,
   DEFAULT_PARENT_CHECK_INTERVAL_MS,
+  DONE_FIELD,
 } from "../static";
 
 /**
@@ -34,14 +39,14 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
     job
   ) => {
     // get the params and ids (if they exist) of the child jobs from redis
-    const jobKey = keyFormatter.job(this.flowName, job.id);
+    const jobKey = keyFormatter.job(job.id);
     const childParamsKey = keyFormatter.childrenParams(this.queue.name);
     const childJobsKey = keyFormatter.childrenJobs(this.queue.name);
     const [paramsString, jobsString] = await Promise.all([
       this.nonBlockingRedis.hGet(jobKey, childParamsKey),
       this.nonBlockingRedis.hGet(jobKey, childJobsKey),
     ]);
-    const childGroup = this.queue.name;
+    const parentQueueName = this.queue.name;
 
     const params: BaseChildParam[] = JSON.parse(paramsString);
     let jobs: string[] = jobsString ? JSON.parse(jobsString) : [];
@@ -56,27 +61,31 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
           this.logger.warn("Child name is missing in child params", {
             ...DEFAULT_LOG_META,
             queueName: this.queue.name,
-            flowName: this.flowName,
+            flowName: job.flowName,
             workerId: this.id,
             jobId: job.id,
           });
           return;
         }
 
-        // generate child job id
-        const childJobId = uuidv7();
+        // the child flow name is composed of the parent queue name and the child name
+        const childFlowName = `${parentQueueName}:${param.childName}`;
 
-        const childJobKey = keyFormatter.childJob(
-          childGroup,
-          param.childName,
-          childJobId
-        );
+        // generate child job id
+        const childJobId = generateJobId(childFlowName);
+
+        const childJobKey = keyFormatter.job(childJobId);
+
         const childQueueKey = keyFormatter.childWaitingQueueName(
-          childGroup,
-          param.childName
+          parentQueueName,
+          param.childName,
+          param.priority || job.priority
         );
 
         const childJob = param;
+        childJob.priority = childJob.priority || job.priority;
+        childJob.flowName = childFlowName;
+        childJob.correlationId = job.correlationId;
         delete childJob.childName;
 
         // create child job state
@@ -100,7 +109,7 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
       // get the child job's done field
       const transaction = this.nonBlockingRedis.multi();
       jobs.forEach((j) => {
-        transaction.hGet(j, "done");
+        transaction.hGet(j, DONE_FIELD);
       });
       const results = await transaction.exec();
 

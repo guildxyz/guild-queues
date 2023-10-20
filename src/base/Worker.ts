@@ -12,13 +12,28 @@ import {
   BaseJobResult,
   AnyObject,
   ICorrelator,
+  DelayError,
 } from "./types";
-import { hGetMore, hSetMore, keyFormatter } from "../utils";
+import {
+  hGetMore,
+  hSetMore,
+  extractFlowNameFromJobId,
+  keyFormatter,
+  bindIdToCorrelator,
+} from "../utils";
 import {
   DEFAULT_LOCK_SEC,
   DEFAULT_LOG_META,
+  DEFAULT_PRIORITY,
   DEFAULT_WAIT_TIMEOUT_SEC,
+  DELAY_REASON_FIELD,
+  DELAY_TIMESTAMP_FIELD,
+  DONE_FIELD,
   EXTRA_LOCK_SEC,
+  FAILED_ERROR_MSG_FIELD,
+  FAILED_FIELD,
+  FAILED_QUEUE_FIELD,
+  IS_DELAY_FIELD,
 } from "../static";
 
 /**
@@ -33,11 +48,6 @@ export default class Worker<
    * Uuid of the worker
    */
   public readonly id: string;
-
-  /**
-   * Name of the flow the worker belongs to
-   */
-  public readonly flowName: string;
 
   /**
    * The queue to work on
@@ -96,7 +106,6 @@ export default class Worker<
   constructor(options: WorkerOptions<Params, Result>) {
     const {
       queue,
-      flowName,
       workerFunction,
       logger,
       redisClientOptions,
@@ -106,7 +115,6 @@ export default class Worker<
     } = options;
 
     this.queue = queue;
-    this.flowName = flowName;
     this.logger = logger;
     this.lockTimeSec = lockTimeSec ?? DEFAULT_LOCK_SEC;
     this.blockTimeoutSec = blockTimeoutSec ?? DEFAULT_WAIT_TIMEOUT_SEC;
@@ -120,24 +128,27 @@ export default class Worker<
 
   /**
    * Lock a job for execution and return it
-   * @param timeout maximum number of seconds to block (zero means block indefinitely)
    * @returns the job
    */
-  private async lease(timeout: number): Promise<Params> {
-    const propertiesToLog = {
-      queueName: this.queue.name,
-      flowName: this.flowName,
-      workerId: this.id,
-    };
-
+  private async lease(priority: number): Promise<Params> {
     // move a job from the waiting queue to the processing queue
-    const jobId: string = await this.blockingRedis.blMove(
-      this.queue.waitingQueueKey,
-      this.queue.processingQueueKey,
-      "LEFT",
-      "RIGHT",
-      timeout
-    );
+    let jobId: string;
+    if (priority === 1) {
+      jobId = await this.blockingRedis.blMove(
+        keyFormatter.waitingQueueName(this.queue.name, priority),
+        keyFormatter.processingQueueName(this.queue.name, priority),
+        "LEFT",
+        "RIGHT",
+        this.blockTimeoutSec
+      );
+    } else {
+      jobId = await this.blockingRedis.lMove(
+        keyFormatter.waitingQueueName(this.queue.name, priority),
+        keyFormatter.processingQueueName(this.queue.name, priority),
+        "LEFT",
+        "RIGHT"
+      );
+    }
 
     // skip the rest if no job is found due to timeout
     if (!jobId) {
@@ -155,17 +166,24 @@ export default class Worker<
     });
 
     // get the job attributes
-    const jobKey = keyFormatter.job(this.flowName, jobId);
+    const jobKey = keyFormatter.job(jobId);
     const attributes = await hGetMore(
       this.nonBlockingRedis,
       jobKey,
       this.queue.attributesToGet
     );
 
+    const propertiesToLog = {
+      queueName: this.queue.name,
+      flowName: attributes?.flowName,
+      workerId: this.id,
+    };
+
     this.logger.info("Worker leased a job", {
       ...DEFAULT_LOG_META,
       ...propertiesToLog,
       jobId,
+      correlationId: attributes.correlationId,
     });
 
     // return job with id
@@ -178,18 +196,22 @@ export default class Worker<
    * @param result the result of the job
    * @returns whether it was successful
    */
-  private async complete(jobId: string, result?: Result): Promise<boolean> {
+  private async complete(
+    job: Params,
+    priority: number,
+    result?: Result
+  ): Promise<boolean> {
     const propertiesToLog = {
       ...DEFAULT_LOG_META,
       queueName: this.queue.name,
-      flowName: this.flowName,
+      flowName: extractFlowNameFromJobId(job.id),
       workerId: this.id,
-      jobId,
+      jobId: job.id,
     };
 
-    const itemLockKey = keyFormatter.lock(this.queue.name, jobId);
+    const itemLockKey = keyFormatter.lock(this.queue.name, job.id);
 
-    const jobKey = keyFormatter.job(this.flowName, jobId);
+    const jobKey = keyFormatter.job(job.id);
     const { nextQueue } = result;
 
     const propertiesToSave: AnyObject = result;
@@ -199,26 +221,37 @@ export default class Worker<
     // save the result
     await hSetMore(this.nonBlockingRedis, jobKey, propertiesToSave);
 
-    const nextQueueKey = nextQueue
-      ? keyFormatter.waitingQueueName(nextQueue)
-      : this.queue.nextQueueKey;
+    const nextQueueName =
+      nextQueue ||
+      this.queue.nextQueueName ||
+      this.queue.nextQueueMap.get(job.flowName);
 
     // start a redis transaction
     const transaction = this.nonBlockingRedis.multi();
 
     // put job to next queue (if there's a next queue)
-    if (nextQueueKey) {
-      transaction.rPush(nextQueueKey, jobId);
+    if (nextQueueName) {
+      const nextQueueKey = keyFormatter.waitingQueueName(
+        nextQueueName,
+        priority
+      );
+      transaction.rPush(nextQueueKey, job.id);
     }
 
     // remove it from the current one
-    transaction.lRem(this.queue.processingQueueKey, 1, jobId);
+    transaction.lRem(
+      keyFormatter.processingQueueName(this.queue.name, priority),
+      1,
+      job.id
+    );
 
     // remove the lock too
     transaction.del(itemLockKey);
 
     // get the processing queues length
-    transaction.lLen(this.queue.processingQueueKey);
+    transaction.lLen(
+      keyFormatter.processingQueueName(this.queue.name, priority)
+    );
 
     const [
       nextQueueLength,
@@ -242,11 +275,11 @@ export default class Worker<
     // try to abort it: remove from the next queue (if there's a next queue)
     // this can happen in the key was deleted from redis
     let abortSuccessful: boolean;
-    if (nextQueueKey) {
+    if (nextQueueName) {
       const abortResult = await this.nonBlockingRedis.lRem(
-        this.queue.nextQueueKey,
+        keyFormatter.waitingQueueName(this.queue.nextQueueName, priority),
         -1,
-        jobId
+        job.id
       );
       abortSuccessful = abortResult === 1;
     }
@@ -281,6 +314,48 @@ export default class Worker<
   };
 
   /**
+   * Check the rate limit state and delay job if necessary
+   * @param queueIndex The queue's index we currently work on
+   * @param job The job to execute
+   * @returns whether the job was delayed
+   */
+  private delayJobIfLimited = async (job: Params, priority: number) => {
+    const queueName = this.queue.name;
+    const groupName = (job as any)[this.queue.limiter.groupJobKey]; // it's probably not worth the time now to make a new generic type param for this in the Worker
+
+    const currentTimeWindow = Math.floor(
+      Date.now() / this.queue.limiter.intervalMs
+    );
+    const delayCallsKey = keyFormatter.delayCalls(
+      queueName,
+      groupName,
+      currentTimeWindow
+    );
+
+    const calls = await this.nonBlockingRedis.incr(delayCallsKey);
+
+    if (calls > this.queue.limiter.reservoir) {
+      const delayEnqueuedKey = keyFormatter.delayEnqueued(queueName, groupName);
+      const enqueuedCount =
+        (await this.nonBlockingRedis.incr(delayEnqueuedKey)) - 1; // minus one, because the current job does not count
+
+      const nextTimeWindowStart =
+        (currentTimeWindow + 1) * this.queue.limiter.intervalMs;
+
+      const readyTimestamp =
+        nextTimeWindowStart +
+        Math.floor(enqueuedCount / this.queue.limiter.reservoir) *
+          this.queue.limiter.intervalMs;
+
+      await this.delayJob(job.id, priority, "limiter", readyTimestamp);
+
+      return true;
+    }
+
+    return false;
+  };
+
+  /**
    * Executes a job with a timeout lockTimeSec)
    * @param job Job to execute
    * @returns result of the job
@@ -292,7 +367,7 @@ export default class Worker<
         this.logger.warn("Execution timeout exceeded", {
           ...DEFAULT_LOG_META,
           queueName: this.queue.name,
-          flowName: this.flowName,
+          flowName: job.flowName,
           workerId: this.id,
           lockTimeSec: this.lockTimeSec,
         });
@@ -314,39 +389,124 @@ export default class Worker<
     return result;
   };
 
+  private leaseWrapper = async () => {
+    let job: Params;
+    let priority = DEFAULT_PRIORITY;
+    while (this.status === "running") {
+      job = await this.lease(priority);
+      if (job) {
+        break;
+      } else {
+        priority += 1;
+        if (priority > this.queue.priorities) {
+          priority = DEFAULT_PRIORITY;
+        }
+      }
+    }
+    return { job, priority };
+  };
+
+  private delayWrapper = async (job: Params, priority: number) => {
+    if (this.queue.limiter) {
+      if ((job as any).delay) {
+        const jobKey = keyFormatter.job(job.id);
+        const groupName = (job as any)[this.queue.limiter.groupJobKey]; // it's probably not worth the time now to make a new generic type param for this in the Worker
+        const delayEnqueuedKey = keyFormatter.delayEnqueued(
+          this.queue.name,
+          groupName
+        );
+
+        const transactionResult = await this.nonBlockingRedis
+          .multi()
+          .decr(delayEnqueuedKey)
+          .hDel(jobKey, [
+            IS_DELAY_FIELD,
+            DELAY_TIMESTAMP_FIELD,
+            DELAY_REASON_FIELD,
+          ])
+          .exec();
+
+        this.logger.info("Delay enqueued counter decremented", {
+          ...DEFAULT_LOG_META,
+          queueName: this.queue.name,
+          workerId: this.id,
+          jobId: job.id,
+          priority,
+          transactionResult,
+        });
+      }
+
+      const isLimited = await this.delayJobIfLimited(job, priority);
+      if (isLimited) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  private executeWrapper = async (job: Params, priority: number) => {
+    let result: Result;
+    // this isolates error boundaries between "consumer-error" and "queue-lib-error"
+    try {
+      result = await this.executeWithDeadline(job);
+    } catch (error: any) {
+      if (error instanceof DelayError) {
+        await this.delayJob(
+          job.id,
+          priority,
+          error.message,
+          error.readyTimestamp
+        );
+      } else {
+        await this.handleWorkerFunctionError(job, priority, error);
+      }
+    }
+    return result;
+  };
+
   /**
    * Loop for executing jobs until the Worker is running
    */
   private eventLoopFunction = async () => {
+    const propertiesToLog = { queueName: this.queue.name, workerId: this.id };
+
     while (this.status === "running") {
       try {
-        // generate UUID and pass create a correlator context
-        await this.correlator.withId(uuidv7(), async () => {
-          const job = await this.lease(this.blockTimeoutSec);
+        const { job, priority } = await this.leaseWrapper();
+        if (!job) break;
 
-          // if there's a job execute it
-          if (job) {
-            let result: Result;
+        await bindIdToCorrelator(
+          this.correlator,
+          job.correlationId,
+          async () => {
+            // if there's a job execute it
+            if (job) {
+              const isDelayed = await this.delayWrapper(job, priority);
+              if (isDelayed) return;
 
-            // ths isolates error boundaries between "consumer-error" and "queue-lib-error"
-            try {
-              result = await this.executeWithDeadline(job);
-            } catch (workerFunctionError: any) {
-              await this.handleWorkerFunctionError(job.id, workerFunctionError);
+              const start = performance.now();
+              const result = await this.executeWrapper(job, priority);
+              const time = performance.now() - start;
+              this.logger.info("Job executed", {
+                ...DEFAULT_LOG_META,
+                ...propertiesToLog,
+                time,
+                job,
+                failed: !result,
+              });
+
+              if (result) {
+                await this.complete(job, priority, result);
+              }
             }
-
-            if (result) {
-              await this.complete(job.id, result);
-            }
+            // else check if worker is still running and retry
           }
-          // else check if worker is still running and retry
-        });
+        );
       } catch (error) {
         this.logger.error("Event loop uncaught error", {
           ...DEFAULT_LOG_META,
-          queueName: this.queue.name,
-          flowName: this.flowName,
-          workerId: this.id,
+          ...propertiesToLog,
           error,
         });
       }
@@ -360,7 +520,6 @@ export default class Worker<
     const propertiesToLog = {
       ...DEFAULT_LOG_META,
       queueName: this.queue.name,
-      flowName: this.flowName,
       workerId: this.id,
     };
 
@@ -382,7 +541,6 @@ export default class Worker<
     const propertiesToLog = {
       ...DEFAULT_LOG_META,
       queueName: this.queue.name,
-      flowName: this.flowName,
       workerId: this.id,
     };
 
@@ -403,13 +561,18 @@ export default class Worker<
    * @param jobId The jobs's id
    * @param error The error thrown by the workerFunction
    */
-  private handleWorkerFunctionError = async (jobId: string, error: any) => {
+  private handleWorkerFunctionError = async (
+    job: Params,
+    priority: number,
+    error: any
+  ) => {
     const propertiesToLog = {
       ...DEFAULT_LOG_META,
       queueName: this.queue.name,
-      flowName: this.flowName,
+      flowName: extractFlowNameFromJobId(job.id),
       workerId: this.id,
-      jobId,
+      jobId: job.id,
+      job,
     };
 
     // log the error
@@ -418,12 +581,12 @@ export default class Worker<
       error,
     });
 
-    const jobKey = keyFormatter.job(this.flowName, jobId);
+    const jobKey = keyFormatter.job(job.id);
     const propertiesToSave = {
-      done: true,
-      failed: true,
-      failedQueue: this.queue.name,
-      failedErrorMsg: error.message,
+      [DONE_FIELD]: true,
+      [FAILED_FIELD]: true,
+      [FAILED_QUEUE_FIELD]: this.queue.name,
+      [FAILED_ERROR_MSG_FIELD]: error.message,
     };
 
     // mark the job as failed
@@ -439,7 +602,11 @@ export default class Worker<
 
     // remove the job from the processing queue
     await this.nonBlockingRedis
-      .lRem(this.queue.processingQueueKey, 1, jobId)
+      .lRem(
+        keyFormatter.processingQueueName(this.queue.name, priority),
+        1,
+        job.id
+      )
       .catch((err) => {
         this.logger.error("Failed to remove failed job from processing queue", {
           ...propertiesToLog,
@@ -447,5 +614,51 @@ export default class Worker<
           error: err,
         });
       });
+  };
+
+  private delayJob = async (
+    jobId: string,
+    priority: number,
+    reason: string,
+    readyTimestamp: number
+  ) => {
+    const propertiesToLog = {
+      ...DEFAULT_LOG_META,
+      queueName: this.queue.name,
+      flowName: extractFlowNameFromJobId(jobId),
+      workerId: this.id,
+      jobId,
+      reason,
+      readyTimestamp,
+    };
+
+    this.logger.info("Job will be delayed", propertiesToLog);
+
+    const lockKey = keyFormatter.lock(this.queue.name, jobId);
+    const jobKey = keyFormatter.job(jobId);
+
+    const transactionResult = await this.nonBlockingRedis
+      .multi()
+      .zAdd(keyFormatter.delayedQueueName(this.queue.name, priority), {
+        value: jobId,
+        score: readyTimestamp,
+      })
+      .lRem(
+        keyFormatter.processingQueueName(this.queue.name, priority),
+        1,
+        jobId
+      )
+      .hSet(jobKey, [
+        IS_DELAY_FIELD,
+        "true",
+        DELAY_TIMESTAMP_FIELD,
+        readyTimestamp,
+        DELAY_REASON_FIELD,
+        `"${reason}"`,
+      ])
+      .del(lockKey)
+      .exec();
+
+    this.logger.info("Job delayed", { ...propertiesToLog, transactionResult });
   };
 }

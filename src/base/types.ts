@@ -1,5 +1,7 @@
+// eslint-disable-next-line max-classes-per-file
 import { RedisClientOptions, createClient } from "redis";
 import Queue from "./Queue";
+import { FlowNames } from "../flows/types";
 
 /* ========== Interfaces ========== */
 
@@ -32,7 +34,9 @@ export interface IStartable {
 /**
  * Can bind and provide correlation id
  */
-export type ICorrelator = { withId(id: any, work: any): any; getId: () => any };
+export type ICorrelator = {
+  getId: () => any;
+};
 
 /**
  * Datadog's DogStatsD interface (I would rather not import the package just for this type)
@@ -80,11 +84,21 @@ export type ArrayElement<ArrayType> =
 
 /* ========== Base types ========== */
 
+export type Limiter = {
+  reservoir: number;
+  intervalMs: number;
+  groupJobKey: string;
+};
+
 /**
  * The minimal job that a Worker can work with
  */
 export type BaseJobParams = {
   id: string;
+  flowName: FlowNames;
+  priority: number;
+  correlationId: string;
+  delay?: boolean;
 };
 
 /**
@@ -102,6 +116,7 @@ export type BaseJobResult = {
  */
 export type BaseChildParam = AnyObject & {
   childName: string;
+  priority: number;
 };
 
 /**
@@ -139,6 +154,11 @@ export type QueueOptions<NextQueueName extends string = string> = {
    */
   nextQueueName?: NextQueueName;
   /**
+   * If the queue is part of multiple flows, it probably has multiple next queues
+   * This map maps the flow names to the next queues
+   */
+  nextQueueMap?: Map<string, string>;
+  /**
    * Default attributes (of the flow) necessary to execute the job
    */
   attributesToGet?: string[];
@@ -147,6 +167,23 @@ export type QueueOptions<NextQueueName extends string = string> = {
    * Options for creating the child queues
    */
   children?: QueueOptions[];
+
+  /**
+   * Optional rate limiter options
+   */
+  limiter?: Limiter;
+
+  /**
+   * Number of priorities for this queue
+   */
+  priorities?: number;
+
+  /**
+   * Whether the job is expected to be delayed
+   * The flow monitor uses this info
+   * If it's true it will monitor the queue's delay queue as well
+   */
+  delayable?: boolean;
 };
 
 /**
@@ -160,10 +197,6 @@ export type WorkerOptions<
    * The queue to work on
    */
   queue: Queue;
-  /**
-   * Prefix of the flow this worker belongs to
-   */
-  flowName: string;
   /**
    * The function to execute on jobs
    */
@@ -229,9 +262,16 @@ export type FlowOptions = {
 
 export type FlowMonitorOptions = {
   redisClientOptions: RedisClientOptions;
-  flowName: string;
-  queueNames: string[];
   logger: ILogger;
   dogStatsD?: DogStatsD;
   intervalMs?: number;
 };
+
+export class DelayError extends Error {
+  public readyTimestamp: number;
+
+  constructor(reason: string, readyTimestamp: number) {
+    super(reason);
+    this.readyTimestamp = readyTimestamp;
+  }
+}
