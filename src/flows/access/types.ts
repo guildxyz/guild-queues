@@ -22,6 +22,7 @@ export type CreateAccessJobOptions = {
   forceRewardActions: boolean;
   onlyForThisPlatform?: string;
   correlationId: string;
+  shareSocials?: boolean;
 };
 
 /**
@@ -137,6 +138,7 @@ export type AccessLogicResult = AccessFlowResult & {
 export type UpdateMembershipParams = AccessFlowParams & {
   roleAccesses: RoleAccess[];
   manageRewards: boolean;
+  shareSocials?: boolean;
 };
 
 /**

@@ -46,6 +46,7 @@ const getAccessFlowProps = (): FlowProps => {
         ...defaultAttributesToGet,
         "roleAccesses",
         "manageRewards",
+        "shareSocials",
       ],
     },
     {
