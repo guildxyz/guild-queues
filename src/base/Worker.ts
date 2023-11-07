@@ -476,11 +476,10 @@ export default class Worker<
         const { job, priority } = await this.leaseWrapper();
         if (!job) break;
 
-        await bindIdToCorrelator(
-          this.correlator,
-          job.correlationId,
-          async () => {
+        await new Promise((resolve) => {
+          bindIdToCorrelator(this.correlator, job.correlationId, async () => {
             // if there's a job execute it
+            // else check if worker is still running and retry
             if (job) {
               const isDelayed = await this.delayWrapper(job, priority);
               if (isDelayed) return;
@@ -500,9 +499,10 @@ export default class Worker<
                 await this.complete(job, priority, result);
               }
             }
-            // else check if worker is still running and retry
-          }
-        );
+
+            resolve(0);
+          });
+        });
       } catch (error) {
         this.logger.error("Event loop uncaught error", {
           ...DEFAULT_LOG_META,
