@@ -11,7 +11,7 @@ const getStatusUpdateFlowProps = (): FlowProps => {
     "roleIds",
     "correlationId",
   ];
-  const lookupAttributes = ["userIds", "roleIds", "guildId"];
+  const lookupAttributes = ["roleIds", "guildId"];
 
   const queueOptions: (QueueOptions<StatusUpdateJob["queueName"]> | Queue)[] = [
     {
