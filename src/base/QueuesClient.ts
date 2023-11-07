@@ -171,8 +171,9 @@ export default class QueuesClient {
     transaction.del(jobKey);
 
     // remove children
-    Object.entries(job).map(async ([key, value]) => {
-      if (key.match(/^children:.*:jobs$/) && value instanceof Array) {
+    const matcher = /^children:.*:jobs$/
+    Object.entries(job).forEach(([key, value]) => {
+      if (key.match(matcher) && value instanceof Array) {
         value.forEach((childJobId) => {
           transaction.del(childJobId);
         });
