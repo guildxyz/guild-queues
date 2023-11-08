@@ -162,7 +162,7 @@ export const generateJobId = (flowName: string) => `${flowName}:${uuidv7()}`;
 export const extractFlowNameFromJobId = (jobId: string) =>
   jobId.split(":")?.slice(0, -1).join(":");
 
-export const bindIdToCorrelator = async (
+export const bindIdToCorrelator = (
   correlator: ICorrelator,
   id: string,
   callback: () => Promise<void>

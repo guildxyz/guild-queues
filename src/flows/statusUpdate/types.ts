@@ -169,4 +169,4 @@ export type StatusUpdateJob =
   | ManageRewardJob
   | StatusUpdateResultJob;
 
-export type StatusUpdateLookupAttributes = "userIds" | "roleIds" | "guildId";
+export type StatusUpdateLookupAttributes = "roleIds" | "guildId";
