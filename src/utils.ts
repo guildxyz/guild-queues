@@ -123,8 +123,8 @@ export const keyFormatter = {
     currentTimeWindow: number
   ) =>
     `${COUNTER_KEY_PREFIX}:delay:calls:${queueName}:${groupName}:${currentTimeWindow}`,
-  delayEnqueued: (queueName: string, groupName: string) =>
-    `${COUNTER_KEY_PREFIX}:delay:enqueued:${queueName}:${groupName}`,
+  delayEnqueued: (limiterId: string, groupName: string) =>
+    `${COUNTER_KEY_PREFIX}:delay:enqueued:${limiterId}:${groupName}`,
 };
 
 export const getLookupKeys = (

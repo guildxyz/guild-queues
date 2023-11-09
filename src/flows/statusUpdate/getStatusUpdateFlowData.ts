@@ -1,16 +1,11 @@
 import Queue from "../../base/Queue";
 import { QueueOptions } from "../../base/types";
-import { manageRewardQueue } from "../sharedQueues";
+import { accessCheckQueue, manageRewardQueue } from "../sharedQueues";
 import { FlowProps } from "../types";
 import { StatusUpdateJob } from "./types";
 
 const getStatusUpdateFlowProps = (): FlowProps => {
-  const defaultAttributesToGet = [
-    "userIds",
-    "guildId",
-    "roleIds",
-    "correlationId",
-  ];
+  const defaultAttributesToGet = ["userIds", "guildId", "roleIds"];
   const lookupAttributes = ["roleIds", "guildId"];
 
   const queueOptions: (QueueOptions<StatusUpdateJob["queueName"]> | Queue)[] = [
@@ -18,6 +13,7 @@ const getStatusUpdateFlowProps = (): FlowProps => {
       queueName: "status-update-preparation",
       attributesToGet: [...defaultAttributesToGet, "recheckAccess", "guildId"],
     },
+    accessCheckQueue,
     {
       queueName: "bulk-access-check",
       attributesToGet: [...defaultAttributesToGet],

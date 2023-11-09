@@ -1,17 +1,12 @@
 import Queue from "../../base/Queue";
 import { QueueOptions } from "../../base/types";
 import { AccessFlowJob } from "./types";
-import { manageRewardQueue } from "../sharedQueues";
+import { accessCheckQueue, manageRewardQueue } from "../sharedQueues";
 import { FlowProps } from "../types";
 
 const getAccessFlowProps = (): FlowProps => {
   // most of the access flow jobs need the userId and roleId
-  const defaultAttributesToGet = [
-    "userId",
-    "guildId",
-    "roleIds",
-    "correlationId",
-  ];
+  const defaultAttributesToGet = ["userId", "guildId", "roleIds"];
   // we want to fetch the access flow jobs by userId, roleId, guildId, in the queues
   const lookupAttributes = ["userId", "roleIds", "guildId"];
 
@@ -21,17 +16,7 @@ const getAccessFlowProps = (): FlowProps => {
       queueName: "access-preparation",
       attributesToGet: [...defaultAttributesToGet, "recheckAccess", "guildId"],
     },
-    {
-      queueName: "access-check",
-      attributesToGet: [...defaultAttributesToGet, "requirementIds"],
-      children: [
-        {
-          queueName: "requirement",
-          attributesToGet: ["userId", "requirementId"],
-        },
-      ],
-      nextQueueName: "access-logic",
-    },
+    accessCheckQueue,
     {
       queueName: "access-logic",
       attributesToGet: [

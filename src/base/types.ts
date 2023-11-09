@@ -85,6 +85,7 @@ export type ArrayElement<ArrayType> =
 /* ========== Base types ========== */
 
 export type Limiter = {
+  id: string;
   reservoir: number;
   intervalMs: number;
   groupJobKey: string;
@@ -171,7 +172,8 @@ export type QueueOptions<NextQueueName extends string = string> = {
   /**
    * Optional rate limiter options
    */
-  limiter?: Limiter;
+  limiter?: Pick<Limiter, "intervalMs" | "reservoir"> & // required properties
+    Partial<Pick<Limiter, "id" | "groupJobKey">>; // optional properties
 
   /**
    * Number of priorities for this queue

@@ -46,6 +46,7 @@ export type StatusUpdatePreparationResult = StatusUpdateFlowResult &
     | {
         nextQueue: "bulk-access-check";
         "children:bulk-access-check:params": BulkAccessCheckChildParams[];
+        "children:access-check:params": AccessCheckChildParams[];
       }
     | {
         nextQueue: "bulk-update-membership";

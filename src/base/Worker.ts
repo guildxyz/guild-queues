@@ -22,6 +22,7 @@ import {
   bindIdToCorrelator,
 } from "../utils";
 import {
+  DEFAULT_LIMITER_GROUP_NAME,
   DEFAULT_LOCK_SEC,
   DEFAULT_LOG_META,
   DEFAULT_PRIORITY,
@@ -319,9 +320,12 @@ export default class Worker<
    * @param job The job to execute
    * @returns whether the job was delayed
    */
-  private delayJobIfLimited = async (job: Params, priority: number) => {
+  private delayJobIfLimited = async (
+    job: Params,
+    priority: number,
+    groupName: string
+  ) => {
     const queueName = this.queue.name;
-    const groupName = (job as any)[this.queue.limiter.groupJobKey]; // it's probably not worth the time now to make a new generic type param for this in the Worker
 
     const currentTimeWindow = Math.floor(
       Date.now() / this.queue.limiter.intervalMs
@@ -335,7 +339,10 @@ export default class Worker<
     const calls = await this.nonBlockingRedis.incr(delayCallsKey);
 
     if (calls > this.queue.limiter.reservoir) {
-      const delayEnqueuedKey = keyFormatter.delayEnqueued(queueName, groupName);
+      const delayEnqueuedKey = keyFormatter.delayEnqueued(
+        this.queue.limiter.id,
+        groupName
+      );
       const enqueuedCount =
         (await this.nonBlockingRedis.incr(delayEnqueuedKey)) - 1; // minus one, because the current job does not count
 
@@ -408,11 +415,14 @@ export default class Worker<
 
   private delayWrapper = async (job: Params, priority: number) => {
     if (this.queue.limiter) {
+      const groupName = this.queue.limiter.groupJobKey
+        ? (job as any)[this.queue.limiter.groupJobKey]
+        : DEFAULT_LIMITER_GROUP_NAME; // it's probably not worth the time now to make a new generic type param for this in the Worker
+
       if ((job as any).delay) {
         const jobKey = keyFormatter.job(job.id);
-        const groupName = (job as any)[this.queue.limiter.groupJobKey]; // it's probably not worth the time now to make a new generic type param for this in the Worker
         const delayEnqueuedKey = keyFormatter.delayEnqueued(
-          this.queue.name,
+          this.queue.limiter.id,
           groupName
         );
 
@@ -436,7 +446,7 @@ export default class Worker<
         });
       }
 
-      const isLimited = await this.delayJobIfLimited(job, priority);
+      const isLimited = await this.delayJobIfLimited(job, priority, groupName);
       if (isLimited) {
         return true;
       }
