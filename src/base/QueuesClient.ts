@@ -171,7 +171,7 @@ export default class QueuesClient {
     transaction.del(jobKey);
 
     // remove children
-    const matcher = /^children:.*:jobs$/
+    const matcher = /^children:.*:jobs$/;
     Object.entries(job).forEach(([key, value]) => {
       if (key.match(matcher) && value instanceof Array) {
         value.forEach((childJobId) => {
@@ -189,7 +189,13 @@ export default class QueuesClient {
    * @param resolveChildren whether include child jobs (not just their keys)
    * @returns jobs
    */
-  private getJobs = async (jobIds: string[], resolveChildren: boolean) => {
+  private getJobs = async <FlowName extends FlowNames>(
+    jobIds: string[],
+    resolveChildren: boolean
+  ): Promise<
+    (FlowTypes[FlowName]["job"]["params"] &
+      FlowTypes[FlowName]["job"]["result"])[]
+  > => {
     const transaction = this.redis.multi();
     jobIds.forEach((jobId) => {
       const jobKey = keyFormatter.job(jobId);
@@ -250,7 +256,8 @@ export default class QueuesClient {
       );
     }
 
-    return jobs;
+    return jobs as (FlowTypes[FlowName]["job"]["params"] &
+      FlowTypes[FlowName]["job"]["result"])[]; // trust me bro
   };
 
   /**
@@ -265,7 +272,10 @@ export default class QueuesClient {
     keyName: FlowTypes[FlowName]["lookupAttributes"],
     value: string | number,
     resolveChildren: boolean
-  ): Promise<Record<string, any>[]> => {
+  ): Promise<
+    (FlowTypes[FlowName]["job"]["params"] &
+      FlowTypes[FlowName]["job"]["result"])[]
+  > => {
     // typecheck (necessary because CreateFlowOptions extends AnyObject)
     if (typeof keyName !== "string") {
       return [];
