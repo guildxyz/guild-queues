@@ -69,6 +69,7 @@ export type AccessCheckChildParams = {
   childName: "requirement" | "covalent";
   userId: number;
   requirementId: number;
+  priority: number;
 };
 
 /**
@@ -310,3 +311,13 @@ export type AccessFlowJob =
   | AccessResultJob;
 
 export type AccessLookupAttributes = "userId" | "roleIds" | "guildId";
+
+export type AccessJobContent = CreateAccessJobOptions &
+  BaseJobParams &
+  AccessPreparationJob["result"] &
+  AccessCheckJob["result"] &
+  AccessLogicJob["result"] &
+  UpdateMembershipJob["result"] &
+  PrepareManageRewardJob["result"] &
+  ManageRewardJob["result"] &
+  AccessResultJob["result"];

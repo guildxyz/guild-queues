@@ -175,7 +175,7 @@ export default class QueuesClient {
     Object.entries(job).forEach(([key, value]) => {
       if (key.match(matcher) && value instanceof Array) {
         value.forEach((childJobId) => {
-          transaction.del(childJobId);
+          transaction.del(childJobId as string);
         });
       }
     });
@@ -192,10 +192,7 @@ export default class QueuesClient {
   private getJobs = async <FlowName extends FlowNames>(
     jobIds: string[],
     resolveChildren: boolean
-  ): Promise<
-    (FlowTypes[FlowName]["job"]["params"] &
-      FlowTypes[FlowName]["job"]["result"])[]
-  > => {
+  ): Promise<FlowTypes[FlowName]["content"][]> => {
     const transaction = this.redis.multi();
     jobIds.forEach((jobId) => {
       const jobKey = keyFormatter.job(jobId);
@@ -256,8 +253,7 @@ export default class QueuesClient {
       );
     }
 
-    return jobs as (FlowTypes[FlowName]["job"]["params"] &
-      FlowTypes[FlowName]["job"]["result"])[]; // trust me bro
+    return jobs as FlowTypes[FlowName]["content"][]; // trust me bro
   };
 
   /**
@@ -272,10 +268,7 @@ export default class QueuesClient {
     keyName: FlowTypes[FlowName]["lookupAttributes"],
     value: string | number,
     resolveChildren: boolean
-  ): Promise<
-    (FlowTypes[FlowName]["job"]["params"] &
-      FlowTypes[FlowName]["job"]["result"])[]
-  > => {
+  ): Promise<FlowTypes[FlowName]["content"][]> => {
     // typecheck (necessary because CreateFlowOptions extends AnyObject)
     if (typeof keyName !== "string") {
       return [];
@@ -287,7 +280,7 @@ export default class QueuesClient {
       -1
     );
 
-    return this.getJobs(jobIds, resolveChildren);
+    return this.getJobs<FlowName>(jobIds, resolveChildren);
   };
 
   /**

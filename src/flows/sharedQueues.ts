@@ -65,6 +65,8 @@ export const accessCheckQueue = new Queue({
     {
       queueName: "covalent",
       attributesToGet: ["userId", "requirementId"],
+      priorities: 2,
+      delayable: true,
       limiter: {
         reservoir: 4, // 50 in prod, 4 otherwise
         intervalMs: 1000,

@@ -33,7 +33,7 @@ export type StatusUpdateFlowParams = Omit<
 
 export type StatusUpdateFlowResult = {
   // eslint-disable-next-line no-use-before-define
-  nextQueue?: StatusUpdateJob["queueName"];
+  nextQueue?: StatusUpdateFlowJob["queueName"];
 };
 
 export type StatusUpdatePreparationParams =
@@ -161,7 +161,7 @@ export type StatusUpdateResultJob = {
   result: AccessResultResult;
 };
 
-export type StatusUpdateJob =
+export type StatusUpdateFlowJob =
   | StatusUpdatePreparationJob
   | BulkAccessCheckJob
   | BulkAccessLogicJob
@@ -171,3 +171,13 @@ export type StatusUpdateJob =
   | StatusUpdateResultJob;
 
 export type StatusUpdateLookupAttributes = "roleIds" | "guildId";
+
+export type StatusUpdateJobContent = CreateStatusUpdateJobOptions &
+  BaseJobParams &
+  StatusUpdatePreparationJob["result"] &
+  BulkAccessCheckJob["result"] &
+  BulkAccessLogicJob["result"] &
+  BulkUpdateMembershipJob["result"] &
+  BulkPrepareManageRewardJob["result"] &
+  ManageRewardJob["result"] &
+  StatusUpdateResultJob["result"];
