@@ -16,7 +16,6 @@ const getStatusUpdateFlowProps = (): FlowProps => {
       queueName: "status-update-preparation",
       attributesToGet: [...defaultAttributesToGet, "recheckAccess", "guildId"],
     },
-    accessCheckQueue,
     {
       queueName: "bulk-access-check",
       attributesToGet: [...defaultAttributesToGet],
@@ -26,8 +25,9 @@ const getStatusUpdateFlowProps = (): FlowProps => {
           attributesToGet: ["userIds", "requirementId"],
         },
       ],
-      nextQueueName: "bulk-access-logic",
+      nextQueueName: "access-check" as StatusUpdateFlowJob["queueName"],
     },
+    accessCheckQueue,
     {
       queueName: "bulk-access-logic",
       attributesToGet: [
