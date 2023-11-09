@@ -61,6 +61,7 @@ export const accessCheckQueue = new Queue({
     {
       queueName: "requirement",
       attributesToGet: ["userId", "requirementId"],
+      priorities: 2,
     },
     {
       queueName: "covalent",
