@@ -499,7 +499,10 @@ export default class Worker<
             // else check if worker is still running and retry
             if (job) {
               const isDelayed = await this.delayWrapper(job, priority);
-              if (isDelayed) resolve(0);
+              if (isDelayed) {
+                resolve(0);
+                return;
+              }
 
               const start = performance.now();
               const result = await this.executeWrapper(job, priority);
