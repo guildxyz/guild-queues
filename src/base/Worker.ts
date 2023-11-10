@@ -20,6 +20,7 @@ import {
   extractFlowNameFromJobId,
   keyFormatter,
   bindIdToCorrelator,
+  delay,
 } from "../utils";
 import {
   DEFAULT_LIMITER_GROUP_NAME,
@@ -131,10 +132,13 @@ export default class Worker<
    * Lock a job for execution and return it
    * @returns the job
    */
-  private async lease(priority: number): Promise<Params> {
+  private async lease(
+    isMultiPriority: boolean,
+    priority: number
+  ): Promise<Params> {
     // move a job from the waiting queue to the processing queue
     let jobId: string;
-    if (priority === 1) {
+    if (!isMultiPriority) {
       jobId = await this.blockingRedis.blMove(
         keyFormatter.waitingQueueName(this.queue.name, priority),
         keyFormatter.processingQueueName(this.queue.name, priority),
@@ -398,17 +402,20 @@ export default class Worker<
 
   private leaseWrapper = async () => {
     let job: Params;
+    const isMultiPriority = this.queue.priorities > 1;
     let priority = DEFAULT_PRIORITY;
     while (this.status === "running") {
-      job = await this.lease(priority);
+      job = await this.lease(isMultiPriority, priority);
       if (job) {
         break;
-      } else {
+      } else if (isMultiPriority) {
         priority += 1;
         if (priority > this.queue.priorities) {
           priority = DEFAULT_PRIORITY;
+          await delay(this.blockTimeoutSec * 1000); // to avoid DOSing redis, we wait 1 sec if no job was found
         }
       }
+      // else => isMultiPriority === false, so it uses BLMOVE so we don't need to wait here
     }
     return { job, priority };
   };
