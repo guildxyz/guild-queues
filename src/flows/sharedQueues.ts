@@ -69,7 +69,7 @@ export const accessCheckQueue = new Queue({
       priorities: 2,
       delayable: true,
       limiter: {
-        reservoir: 4, // 50 in prod, 4 otherwise
+        reservoir: 45, // 50 in prod, 4 otherwise, we use 45 here just to be safe because some checks may require more calls while others require none
         intervalMs: 1000,
       },
     },
