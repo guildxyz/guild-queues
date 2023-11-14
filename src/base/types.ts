@@ -82,6 +82,10 @@ export type AnyObject = { [key: string]: any };
 export type ArrayElement<ArrayType> =
   ArrayType extends readonly (infer ElementType)[] ? ElementType : never;
 
+type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
+
+export type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
 /* ========== Base types ========== */
 
 export type Limiter = {
@@ -172,8 +176,7 @@ export type QueueOptions<NextQueueName extends string = string> = {
   /**
    * Optional rate limiter options
    */
-  limiter?: Pick<Limiter, "intervalMs" | "reservoir"> & // required properties
-    Partial<Pick<Limiter, "id" | "groupJobKey">>; // optional properties
+  limiter?: PartialBy<Limiter, "id" | "groupJobKey">;
 
   /**
    * Number of priorities for this queue
