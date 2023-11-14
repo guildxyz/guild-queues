@@ -1,23 +1,27 @@
 import Queue from "../base/Queue";
 import {
   AccessFlowJob,
+  AccessJobContent,
   AccessLookupAttributes,
   CreateAccessJobOptions,
 } from "./access/types";
 import {
   CreateStatusUpdateJobOptions,
-  StatusUpdateJob,
+  StatusUpdateFlowJob,
+  StatusUpdateJobContent,
   StatusUpdateLookupAttributes,
 } from "./statusUpdate/types";
 
 export type FlowTypes = {
   access: {
     job: AccessFlowJob;
+    content: AccessJobContent;
     createJobOptions: CreateAccessJobOptions;
     lookupAttributes: AccessLookupAttributes;
   };
   "status-update": {
-    job: StatusUpdateJob;
+    job: StatusUpdateFlowJob;
+    content: StatusUpdateJobContent;
     createJobOptions: CreateStatusUpdateJobOptions;
     lookupAttributes: StatusUpdateLookupAttributes;
   };

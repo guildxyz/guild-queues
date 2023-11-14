@@ -69,7 +69,14 @@ export default class Queue {
 
     // set properties
     this.name = queueName;
-    this.limiter = limiter;
+    this.limiter = limiter
+      ? {
+          reservoir: limiter.reservoir,
+          intervalMs: limiter.intervalMs,
+          id: limiter.id ?? queueName,
+          groupJobKey: limiter.groupJobKey,
+        }
+      : undefined;
     this.attributesToGet = attributesToGet || [];
     this.priorities = priorities || 1;
     this.delayable = delayable ?? false;

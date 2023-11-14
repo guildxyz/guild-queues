@@ -66,9 +66,10 @@ export type AccessPreparationParams = AccessFlowParams & {
  * Basic properties of requirementCheck
  */
 export type AccessCheckChildParams = {
-  childName: "requirement";
+  childName: "requirement" | "covalent";
   userId: number;
   requirementId: number;
+  priority: number;
 };
 
 /**
@@ -236,7 +237,7 @@ export type AccessPreparationJob = {
  */
 export type AccessCheckJob = {
   queueName: "access-check";
-  children: [{ queueName: "requirement" }];
+  children: [{ queueName: "requirement" }, { queueName: "covalent" }];
   params: AccessCheckParams;
   result: AccessCheckResult;
 };
@@ -310,3 +311,13 @@ export type AccessFlowJob =
   | AccessResultJob;
 
 export type AccessLookupAttributes = "userId" | "roleIds" | "guildId";
+
+export type AccessJobContent = CreateAccessJobOptions &
+  BaseJobParams &
+  AccessPreparationJob["result"] &
+  AccessCheckJob["result"] &
+  AccessLogicJob["result"] &
+  UpdateMembershipJob["result"] &
+  PrepareManageRewardJob["result"] &
+  ManageRewardJob["result"] &
+  AccessResultJob["result"];

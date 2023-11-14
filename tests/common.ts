@@ -10,9 +10,6 @@ export const testRedisClient = createClient(testRedisClientOptions);
 
 export const testCorrelator: ICorrelator = {
   getId: () => "abc",
-  withId(id, work) {
-    work();
-  },
 };
 
 export const testLogger: ILogger = {

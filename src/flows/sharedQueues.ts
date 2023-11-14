@@ -3,7 +3,6 @@ import Queue from "../base/Queue";
 // all manage reward child jobs only need the manageRewardAction attribute
 const manageRewardAttributeToGet = ["manageRewardAction"];
 
-// eslint-disable-next-line import/prefer-default-export
 export const manageRewardQueue = new Queue({
   queueName: "manage-reward",
   attributesToGet: [
@@ -41,6 +40,38 @@ export const manageRewardQueue = new Queue({
     {
       queueName: "nft",
       attributesToGet: manageRewardAttributeToGet,
+    },
+  ],
+});
+
+export const accessCheckQueue = new Queue({
+  queueName: "access-check",
+  attributesToGet: [
+    "userId",
+    "guildId",
+    "roleIds",
+    "correlationId",
+    "requirementIds",
+  ],
+  nextQueueMap: new Map([
+    ["access", "access-logic"],
+    ["status-update", "bulk-access-logic"],
+  ]),
+  children: [
+    {
+      queueName: "requirement",
+      attributesToGet: ["userId", "requirementId"],
+      priorities: 2,
+    },
+    {
+      queueName: "covalent",
+      attributesToGet: ["userId", "requirementId"],
+      priorities: 2,
+      delayable: true,
+      limiter: {
+        reservoir: 45, // 50 in prod, 4 otherwise, we use 45 here just to be safe because some checks may require more calls while others require none
+        intervalMs: 1000,
+      },
     },
   ],
 });
