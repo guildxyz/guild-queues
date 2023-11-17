@@ -5,6 +5,7 @@ import {
   BaseJobParams,
   BaseJobResult,
   ICorrelator,
+  ManagedJobFields,
 } from "../../base/types";
 import { DONE_FIELD } from "../../static";
 
@@ -83,6 +84,7 @@ export type AccessPreparationResult = AccessFlowResult &
       }
     | {
         nextQueue: "update-membership";
+        "children:access-check:params"?: never;
       }
   );
 
@@ -314,10 +316,17 @@ export type AccessLookupAttributes = "userId" | "roleIds" | "guildId";
 
 export type AccessJobContent = CreateAccessJobOptions &
   BaseJobParams &
+  ManagedJobFields &
   AccessPreparationJob["result"] &
-  AccessCheckJob["result"] &
   AccessLogicJob["result"] &
   UpdateMembershipJob["result"] &
   PrepareManageRewardJob["result"] &
   ManageRewardJob["result"] &
-  AccessResultJob["result"];
+  AccessResultJob["result"] & {
+    "children:access-check:jobs": (AccessCheckResult &
+      BaseJobParams &
+      ManagedJobFields)[];
+    "children:manage-reward:jobs": (ManageRewardResult &
+      BaseJobParams &
+      ManagedJobFields)[];
+  };

@@ -191,18 +191,37 @@ export default class QueuesClient {
    */
   private getJobs = async <FlowName extends FlowNames>(
     jobIds: string[],
-    resolveChildren: boolean
+    resolveChildren: boolean,
+    keysToGet: (keyof FlowTypes[FlowName]["content"])[] = undefined
   ): Promise<FlowTypes[FlowName]["content"][]> => {
     const transaction = this.redis.multi();
     jobIds.forEach((jobId) => {
       const jobKey = keyFormatter.job(jobId);
-      transaction.hGetAll(jobKey);
+      if (keysToGet) {
+        transaction.hmGet(jobKey, keysToGet as string[]);
+      } else {
+        transaction.hGetAll(jobKey);
+      }
     });
     const rawJobs = await transaction.exec();
-    let jobs: Record<string, any>[] = rawJobs.map((rawJob, index) => ({
-      id: jobIds[index],
-      ...parseObject(rawJob as any, this.logger),
-    }));
+    let jobs: Record<string, any>[] = rawJobs.map((rawJob, index) => {
+      if (!keysToGet) {
+        return {
+          id: jobIds[index],
+          ...parseObject(rawJob as any, this.logger),
+        };
+      }
+
+      const rawJobObject = Object.fromEntries(
+        keysToGet
+          .map<[any, any]>((key, keyIndex) => [key, (rawJob as any)[keyIndex]])
+          .filter(([, value]) => value !== null)
+      );
+      return {
+        id: jobIds[index],
+        ...parseObject(rawJobObject, this.logger),
+      };
+    });
 
     // add more variables, separate code ***clean code***
     if (resolveChildren) {
@@ -239,7 +258,7 @@ export default class QueuesClient {
 
                   const children = await Promise.all(
                     Array.from(childIdsByParentQueueName.entries()).map(
-                      ([, childIds]) => this.getJobs(childIds, true)
+                      ([, childIds]) => this.getJobs(childIds, true, keysToGet)
                     )
                   ).then((x) => x.flat());
 
@@ -267,7 +286,8 @@ export default class QueuesClient {
     flowName: FlowName,
     keyName: FlowTypes[FlowName]["lookupAttributes"],
     value: string | number,
-    resolveChildren: boolean
+    resolveChildren: boolean,
+    keysToGet: (keyof FlowTypes[FlowName]["content"])[] = undefined
   ): Promise<FlowTypes[FlowName]["content"][]> => {
     // typecheck (necessary because CreateFlowOptions extends AnyObject)
     if (typeof keyName !== "string") {
@@ -280,7 +300,7 @@ export default class QueuesClient {
       -1
     );
 
-    return this.getJobs<FlowName>(jobIds, resolveChildren);
+    return this.getJobs<FlowName>(jobIds, resolveChildren, keysToGet);
   };
 
   /**

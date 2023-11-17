@@ -1,8 +1,9 @@
-import { BaseJobParams } from "../../base/types";
+import { BaseJobParams, ManagedJobFields } from "../../base/types";
 import { DONE_FIELD } from "../../static";
 import {
   AccessCheckChildParams,
   AccessCheckParams,
+  AccessCheckResult,
   AccessFlowOptions,
   AccessFlowParams,
   AccessPreparationParams,
@@ -10,6 +11,7 @@ import {
   CreateAccessJobOptions,
   ManageRewardChildParams,
   ManageRewardJob,
+  ManageRewardResult,
   RequirementError,
 } from "../access/types";
 
@@ -50,6 +52,8 @@ export type StatusUpdatePreparationResult = StatusUpdateFlowResult &
       }
     | {
         nextQueue: "bulk-update-membership";
+        "children:bulk-access-check:params"?: never;
+        "children:access-check:params"?: never;
       }
   );
 
@@ -174,10 +178,21 @@ export type StatusUpdateLookupAttributes = "roleIds" | "guildId";
 
 export type StatusUpdateJobContent = CreateStatusUpdateJobOptions &
   BaseJobParams &
+  ManagedJobFields &
   StatusUpdatePreparationJob["result"] &
   BulkAccessCheckJob["result"] &
   BulkAccessLogicJob["result"] &
   BulkUpdateMembershipJob["result"] &
   BulkPrepareManageRewardJob["result"] &
   ManageRewardJob["result"] &
-  StatusUpdateResultJob["result"];
+  StatusUpdateResultJob["result"] & {
+    "children:access-check:jobs": (AccessCheckResult &
+      BaseJobParams &
+      ManagedJobFields)[];
+    "children:bulk-access-check:jobs": (BulkAccessCheckResult &
+      BaseJobParams &
+      ManagedJobFields)[];
+    "children:manage-reward:jobs": (ManageRewardResult &
+      BaseJobParams &
+      ManagedJobFields)[];
+  };
