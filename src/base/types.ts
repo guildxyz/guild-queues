@@ -2,6 +2,14 @@
 import { RedisClientOptions, createClient } from "redis";
 import Queue from "./Queue";
 import { FlowNames } from "../flows/types";
+import {
+  DELAY_REASON_FIELD,
+  DELAY_TIMESTAMP_FIELD,
+  FAILED_ERROR_MSG_FIELD,
+  FAILED_FIELD,
+  FAILED_QUEUE_FIELD,
+  IS_DELAY_FIELD,
+} from "../static";
 
 /* ========== Interfaces ========== */
 
@@ -82,6 +90,10 @@ export type AnyObject = { [key: string]: any };
 export type ArrayElement<ArrayType> =
   ArrayType extends readonly (infer ElementType)[] ? ElementType : never;
 
+type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
+
+export type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
 /* ========== Base types ========== */
 
 export type Limiter = {
@@ -110,6 +122,16 @@ export type BaseJobResult = {
    * The queue to put the next job after the current one is finished.
    */
   nextQueue?: string;
+};
+
+export type ManagedJobFields = {
+  "completed-queue"?: string;
+  [FAILED_FIELD]?: boolean;
+  [FAILED_ERROR_MSG_FIELD]?: string;
+  [FAILED_QUEUE_FIELD]?: string;
+  [IS_DELAY_FIELD]?: boolean;
+  [DELAY_TIMESTAMP_FIELD]?: number;
+  [DELAY_REASON_FIELD]?: string;
 };
 
 /**
@@ -172,8 +194,7 @@ export type QueueOptions<NextQueueName extends string = string> = {
   /**
    * Optional rate limiter options
    */
-  limiter?: Pick<Limiter, "intervalMs" | "reservoir"> & // required properties
-    Partial<Pick<Limiter, "id" | "groupJobKey">>; // optional properties
+  limiter?: PartialBy<Limiter, "id" | "groupJobKey">;
 
   /**
    * Number of priorities for this queue
