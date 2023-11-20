@@ -214,7 +214,10 @@ export default class QueuesClient {
 
       const rawJobObject = Object.fromEntries(
         keysToGet
-          .map<[any, any]>((key, keyIndex) => [key, (rawJob as any)[keyIndex]])
+          .map<[string, any]>((key, keyIndex) => [
+            key as string,
+            (rawJob as any)[keyIndex],
+          ])
           .filter(([, value]) => value !== null)
       );
       return {
