@@ -217,6 +217,17 @@ export default class Worker<
     const itemLockKey = keyFormatter.lock(this.queue.name, job.id);
 
     const jobKey = keyFormatter.job(job.id);
+
+    const existsResult = await this.nonBlockingRedis.exists(jobKey);
+
+    if (existsResult === 0) {
+      this.logger.info(
+        "job completion skipped (job key does not exists)",
+        propertiesToLog
+      );
+      return false;
+    }
+
     const { nextQueue } = result;
 
     const propertiesToSave: AnyObject = result;
