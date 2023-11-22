@@ -7,7 +7,7 @@ import { FlowProps } from "../types";
 const getAccessFlowProps = (): FlowProps => {
   // most of the access flow jobs need the userId and roleId
   const defaultAttributesToGet = ["userId", "guildId", "roleIds"];
-  // we want to fetch the access flow jobs by userId, roleId, guildId, in the queues
+  // we want to fetch the access flow jobs by userId, roleId, guildId in the queues
   const lookupAttributes = ["userId", "roleIds", "guildId"];
 
   // queues of the AccessFlow
