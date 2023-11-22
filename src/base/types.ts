@@ -160,7 +160,7 @@ export type BaseJob = {
 export type WorkerFunction<
   Params extends BaseJobParams,
   Result extends BaseJobResult
-> = (job: Params) => Promise<Result>;
+> = (job: Params, timeout?: ReturnType<typeof setTimeout>) => Promise<Result>;
 
 /* ========== Options ========== */
 

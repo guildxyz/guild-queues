@@ -401,7 +401,7 @@ export default class Worker<
 
     const result: Result = await Promise.race([
       timeoutPromise,
-      this.workerFunction(job),
+      this.workerFunction(job, timeout),
     ]);
 
     if (timeout) {
