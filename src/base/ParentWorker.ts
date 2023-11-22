@@ -19,6 +19,7 @@ import {
   DEFAULT_LOG_META,
   DEFAULT_PARENT_CHECK_INTERVAL_MS,
   DONE_FIELD,
+  EXTRA_LOCK_SEC,
 } from "../static";
 
 /**
@@ -36,7 +37,8 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
    * @returns result which contains the next queue
    */
   parentWorkerFunction: WorkerFunction<BaseJobParams, BaseJobResult> = async (
-    job
+    job,
+    timeout
   ) => {
     // get the params and ids (if they exist) of the child jobs from redis
     const jobKey = keyFormatter.job(job.id);
@@ -117,6 +119,14 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
       if (results.every((r) => r === "true")) {
         break;
       }
+
+      // reset timeout
+      const lockKey = keyFormatter.lock(this.queue.name, job.id);
+      await this.nonBlockingRedis.expire(
+        lockKey,
+        this.lockTimeSec + EXTRA_LOCK_SEC
+      );
+      timeout.refresh();
 
       // wait checkInterval milliseconds
       await delay(this.checkInterval);
