@@ -66,7 +66,7 @@ accessFlow.startAll();
 - so we will store the job's data in another redis data structure, in a [hash](https://redis.io/docs/data-types/hashes/) which is basically an object/map containing key-value pairs
 - the hash will contain the params and later the result of the job, and the queues (lists) will only pass the job's ids among each other
 - so first we generate an ID for the job, save the job's data to a hash with the [HSET](https://redis.io/commands/hset/) command and put the job's ID to the waiting queue with the [RPUSH](https://redis.io/commands/rpush/) command
-- then when the job moves to the processing queue we can access the job's parameters buy fetching the hash's fields with the [HGET](https://redis.io/commands/hget/) command
+- then when the job moves to the processing queue we can access the job's parameters by fetching the hash's fields with the [HGET](https://redis.io/commands/hget/) command
 - finally when the job is done we save the job's result to the hash with the HSET command
 
 #### Example
