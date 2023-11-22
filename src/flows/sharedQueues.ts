@@ -60,12 +60,12 @@ export const accessCheckQueue = new Queue({
   children: [
     {
       queueName: "requirement",
-      attributesToGet: ["userId", "requirementId"],
+      attributesToGet: ["userId", "guildId", "roleId", "requirementId"],
       priorities: 2,
     },
     {
       queueName: "covalent",
-      attributesToGet: ["userId", "requirementId"],
+      attributesToGet: ["userId", "guildId", "roleId", "requirementId"],
       priorities: 2,
       delayable: true,
       limiter: {

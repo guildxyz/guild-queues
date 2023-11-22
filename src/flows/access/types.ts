@@ -69,6 +69,8 @@ export type AccessPreparationParams = AccessFlowParams & {
 export type AccessCheckChildParams = {
   childName: "requirement" | "covalent";
   userId: number;
+  guildId: number;
+  roleId: number;
   requirementId: number;
   priority: number;
 };
@@ -93,6 +95,8 @@ export type AccessPreparationResult = AccessFlowResult &
  */
 export type AccessCheckParams = BaseJobParams & {
   userId: number;
+  guildId: number;
+  roleId: number;
   requirementId: number;
 };
 
