@@ -198,11 +198,11 @@ Processing a job:
   - the queues it consists of
   - what job should be executed after one is finished (=what queue comes after another)
   - **a job's state (the information stored in redis hashes) is also defined by the flow, because the same hash will be used throughout the flow**
-    - the Flow class is responsive for creating a new job and fetching it (for monitoring purposes)
+    - the Flow class is responsible for creating a new job and fetching it (for monitoring purposes)
 
 #### Worker
 
-- The jobs in the waiting queue are moved to the processing queue and executed then the result is saved.
+- The jobs in the waiting queue are moved to the processing queue and executed, then the result is saved.
 - The entity that does the above is called the worker, it basically
   - checks the waiting queue it belongs to
   - marks a job for execution,
