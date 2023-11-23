@@ -71,6 +71,11 @@ export default class FlowMonitor {
 
   public jobIdToPositionMap: Map<string, Position> = new Map();
 
+  /**
+   * A set which contains jobIds which had one failed job lock check
+   */
+  public lockMissingJobsIdsSet: Set<string> = new Set();
+
   constructor(options: FlowMonitorOptions) {
     const { redisClientOptions, logger, dogStatsD, intervalMs } = options;
 
@@ -123,6 +128,17 @@ export default class FlowMonitor {
   ) => {
     const lock = await this.redis.get(keyFormatter.lock(queueName, jobId));
     if (lock) {
+      this.lockMissingJobsIdsSet.delete(jobId);
+      return true;
+    }
+
+    if (!this.lockMissingJobsIdsSet.has(jobId)) {
+      this.logger.info("Job lock not found for the first time", {
+        ...DEFAULT_LOG_META,
+        queueName,
+        jobId,
+      });
+      this.lockMissingJobsIdsSet.add(jobId);
       return true;
     }
 
@@ -149,6 +165,7 @@ export default class FlowMonitor {
       ),
     ]);
 
+    this.lockMissingJobsIdsSet.delete(jobId);
     return false;
   };
 
@@ -323,7 +340,9 @@ export default class FlowMonitor {
       }),
     ]);
 
-    this.logger.info("job lists updated", {});
+    this.logger.info("job lists updated", {
+      lockMissingJobsIdsSetSize: this.lockMissingJobsIdsSet.size,
+    });
   };
 
   /**
