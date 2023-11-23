@@ -132,6 +132,7 @@ export default class FlowMonitor {
       return true;
     }
 
+    // if the job fails for the first time, it's possible that the job is just leased but the lock hasn't been inserted yet
     if (!this.lockMissingJobsIdsSet.has(jobId)) {
       this.logger.info("Job lock not found for the first time", {
         ...DEFAULT_LOG_META,
@@ -149,20 +150,30 @@ export default class FlowMonitor {
     });
 
     const jobKey = keyFormatter.job(jobId);
-    await Promise.all([
-      this.redis.lRem(
-        keyFormatter.processingQueueName(queueName, priority),
-        1,
-        jobId
-      ),
-      this.redis.hSet(jobKey, DONE_FIELD, "true"),
-      this.redis.hSet(jobKey, FAILED_FIELD, "true"),
-      this.redis.hSet(jobKey, FAILED_QUEUE_FIELD, `"${queueName}"`),
-      this.redis.hSet(
-        jobKey,
-        FAILED_ERROR_MSG_FIELD,
-        `"${queueName} lock time exceeded"`
-      ),
+    const removedCount = await this.redis.lRem(
+      keyFormatter.processingQueueName(queueName, priority),
+      1,
+      jobId
+    );
+
+    if (removedCount === 0) {
+      this.logger.info(
+        "Job was removed from processing queue while checking lock",
+        {
+          ...DEFAULT_LOG_META,
+          queueName,
+          jobId,
+        }
+      );
+      this.lockMissingJobsIdsSet.add(jobId);
+      return true;
+    }
+
+    await this.redis.hSet(jobKey, [
+      [DONE_FIELD, "true"],
+      [FAILED_FIELD, "true"],
+      [FAILED_QUEUE_FIELD, `"${queueName}"`],
+      [FAILED_ERROR_MSG_FIELD, `"${queueName} lock time exceeded"`],
     ]);
 
     this.lockMissingJobsIdsSet.delete(jobId);

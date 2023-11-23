@@ -220,6 +220,7 @@ export default class Worker<
 
     const existsResult = await this.nonBlockingRedis.exists(jobKey);
 
+    // if the job was (most likely externally) deleted, we shouldn't write to redis
     if (existsResult === 0) {
       this.logger.info(
         "job completion skipped (job key does not exists)",
