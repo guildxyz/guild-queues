@@ -11,6 +11,12 @@ import {
   StatusUpdateJobContent,
   StatusUpdateLookupAttributes,
 } from "./statusUpdate/types";
+import {
+  Web3InboxJobOptions,
+  Web3InboxLookupAttributes,
+  Web3InboxMessagingContent,
+  Web3InboxMessagingJob,
+} from "./web3inbox-messaging/types";
 
 export type FlowTypes = {
   access: {
@@ -24,6 +30,12 @@ export type FlowTypes = {
     content: StatusUpdateJobContent;
     createJobOptions: CreateStatusUpdateJobOptions;
     lookupAttributes: StatusUpdateLookupAttributes;
+  };
+  "web3inbox-messaging": {
+    job: Web3InboxMessagingJob;
+    content: Web3InboxMessagingContent;
+    createJobOptions: Web3InboxJobOptions;
+    lookupAttributes: Web3InboxLookupAttributes;
   };
 };
 
