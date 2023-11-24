@@ -1,6 +1,6 @@
 import { createClient } from "redis";
 import { DogStatsD, FlowMonitorOptions, ILogger, RedisClient } from "./types";
-import { delay, keyFormatter } from "../utils";
+import { delay, getQueueNameJobIdPair, keyFormatter } from "../utils";
 import {
   DEFAULT_LOG_META,
   DONE_FIELD,
@@ -72,9 +72,10 @@ export default class FlowMonitor {
   public jobIdToPositionMap: Map<string, Position> = new Map();
 
   /**
-   * A set which contains jobIds which had one failed job lock check
+   * A set which contains queueName-jobId pairs which had one failed job lock check
    */
-  public lockMissingJobsIdsSet: Set<string> = new Set();
+  public lockMissingQueueNameJobIdPairsSet: Set<`${string}-${string}`> =
+    new Set();
 
   constructor(options: FlowMonitorOptions) {
     const { redisClientOptions, logger, dogStatsD, intervalMs } = options;
@@ -126,20 +127,22 @@ export default class FlowMonitor {
     priority: number,
     jobId: string
   ) => {
+    const queueNameJobIdPair = getQueueNameJobIdPair(queueName, jobId);
+
     const lock = await this.redis.get(keyFormatter.lock(queueName, jobId));
     if (lock) {
-      this.lockMissingJobsIdsSet.delete(jobId);
+      this.lockMissingQueueNameJobIdPairsSet.delete(queueNameJobIdPair);
       return true;
     }
 
     // if the job fails for the first time, it's possible that the job is just leased but the lock hasn't been inserted yet
-    if (!this.lockMissingJobsIdsSet.has(jobId)) {
+    if (!this.lockMissingQueueNameJobIdPairsSet.has(queueNameJobIdPair)) {
       this.logger.info("Job lock not found for the first time", {
         ...DEFAULT_LOG_META,
         queueName,
         jobId,
       });
-      this.lockMissingJobsIdsSet.add(jobId);
+      this.lockMissingQueueNameJobIdPairsSet.add(queueNameJobIdPair);
       return true;
     }
 
@@ -165,7 +168,7 @@ export default class FlowMonitor {
           jobId,
         }
       );
-      this.lockMissingJobsIdsSet.add(jobId);
+      this.lockMissingQueueNameJobIdPairsSet.delete(queueNameJobIdPair);
       return true;
     }
 
@@ -176,7 +179,7 @@ export default class FlowMonitor {
       [FAILED_ERROR_MSG_FIELD, `"${queueName} lock time exceeded"`],
     ]);
 
-    this.lockMissingJobsIdsSet.delete(jobId);
+    this.lockMissingQueueNameJobIdPairsSet.delete(queueNameJobIdPair);
     return false;
   };
 
@@ -245,6 +248,10 @@ export default class FlowMonitor {
             0,
             -1
           );
+          waitingJobIds.forEach((jobId) => {
+            const queueNameJobIdPair = getQueueNameJobIdPair(queue.name, jobId);
+            this.lockMissingQueueNameJobIdPairsSet.delete(queueNameJobIdPair);
+          });
 
           // processing
           const processingQueueName = keyFormatter.processingQueueName(
@@ -287,6 +294,14 @@ export default class FlowMonitor {
                 readyTimestamp: score,
               })
             );
+
+            delayedJobs.forEach((delayedJob) => {
+              const queueNameJobIdPair = getQueueNameJobIdPair(
+                queue.name,
+                delayedJob.jobId
+              );
+              this.lockMissingQueueNameJobIdPairsSet.delete(queueNameJobIdPair);
+            });
 
             filteredDelayedJobs = await this.resumeDelayedJobs(
               queue.name,
@@ -352,7 +367,7 @@ export default class FlowMonitor {
     ]);
 
     this.logger.info("job lists updated", {
-      lockMissingJobsIdsSetSize: this.lockMissingJobsIdsSet.size,
+      lockMissingJobsIdsSetSize: this.lockMissingQueueNameJobIdPairsSet.size,
     });
   };
 
