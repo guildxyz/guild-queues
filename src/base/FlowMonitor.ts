@@ -216,8 +216,6 @@ export default class FlowMonitor {
       .exec();
 
     jobIdsToResume.forEach((jobId) => {
-      const queueNameJobIdPair = getQueueNameJobIdPair(queueName, jobId);
-      this.lockMissingQueueNameJobIdPairsSet.delete(queueNameJobIdPair);
       this.logger.info("Job resumed", {
         ...DEFAULT_LOG_META,
         queueName,
