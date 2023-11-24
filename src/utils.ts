@@ -169,3 +169,8 @@ export const bindIdToCorrelator = (
 ) => {
   (correlator as any)()({ get: () => id }, null, callback);
 };
+
+export const getQueueNameJobIdPair = (
+  queueName: string,
+  jobId: string
+): `${string}-${string}` => `${queueName}-${jobId}`;
