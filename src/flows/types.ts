@@ -16,7 +16,7 @@ import {
   Web3InboxLookupAttributes,
   Web3InboxMessagingContent,
   Web3InboxMessagingJob,
-} from "./web3inbox-messaging/types";
+} from "./web3InboxMessaging/types";
 
 export type FlowTypes = {
   access: {

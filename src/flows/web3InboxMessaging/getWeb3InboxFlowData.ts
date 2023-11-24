@@ -9,7 +9,13 @@ const getWeb3InboxMessagingProps = (): FlowProps => {
   const queueOptions: (QueueOptions<AccessFlowJob["queueName"]> | Queue)[] = [
     {
       queueName: "send-web3inbox-message",
-      attributesToGet: ["guildId", "message"],
+      attributesToGet: [
+        "requestHeaders",
+        "guildId",
+        "notification",
+        "recipients",
+        "readyTimestamp",
+      ],
     },
   ];
 

@@ -1,7 +1,7 @@
 import getAccessFlowProps from "./access/getAccessFlowData";
 import getStatusUpdateFlowProps from "./statusUpdate/getStatusUpdateFlowData";
 import { Flows } from "./types";
-import getWeb3InboxMessagingProps from "./web3inbox-messaging/getWeb3InboxFlowData";
+import getWeb3InboxMessagingProps from "./web3InboxMessaging/getWeb3InboxFlowData";
 
 const accessFlowData = getAccessFlowProps();
 const statusUpdateFlowData = getStatusUpdateFlowProps();
