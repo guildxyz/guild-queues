@@ -11,3 +11,5 @@
 ## [Lookup attributes](./lookup_attributes.md)
 
 ## [Monitoring and timeout handling](./monitor.md)
+
+## [Rate limiting](./rate_limiting.md)
