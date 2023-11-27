@@ -36,6 +36,7 @@ import {
   FAILED_FIELD,
   FAILED_QUEUE_FIELD,
   IS_DELAY_FIELD,
+  RETRIES_KEY_PREFIX,
 } from "../static";
 
 /**
@@ -171,11 +172,15 @@ export default class Worker<
     });
 
     // get the job attributes
+    const attributesToGet = [
+      ...this.queue.attributesToGet,
+      `${RETRIES_KEY_PREFIX}:${this.queue.name}`,
+    ];
     const jobKey = keyFormatter.job(jobId);
     const attributes = await hGetMore(
       this.nonBlockingRedis,
       jobKey,
-      this.queue.attributesToGet
+      attributesToGet
     );
 
     const propertiesToLog = {
@@ -607,13 +612,53 @@ export default class Worker<
       job,
     };
 
+    const jobKey = keyFormatter.job(job.id);
+    const waitingQueueKey = keyFormatter.waitingQueueName(
+      this.queue.name,
+      priority
+    );
+    const processingQueueKey = keyFormatter.processingQueueName(
+      this.queue.name,
+      priority
+    );
+
+    // if the job was (most likely externally) deleted, we shouldn't write to redis
+    const existsResult = await this.nonBlockingRedis.exists(jobKey);
+    if (existsResult === 0) {
+      this.logger.info(
+        "handleWorkerFunctionError skipped (job key does not exists)",
+        propertiesToLog
+      );
+    }
+
+    // handle retries
+    const retriesKey: `retries:${string}` = `retries:${this.queue.name}`;
+    const retries = job[retriesKey] ? job[retriesKey] : 0;
+    console.log(`retries ${retriesKey}`);
+    console.log(`job.retries ${job[retriesKey]}`);
+    console.log(`retries ${retries}`);
+    console.log(`this.queue.maxRetries ${this.queue.maxRetries}`);
+    if (retries < this.queue.maxRetries) {
+      this.logger.info("WorkerFunction error, retrying", {
+        ...propertiesToLog,
+        retries,
+        maxRetries: this.queue.maxRetries,
+      });
+      await this.nonBlockingRedis
+        .multi()
+        .hIncrBy(jobKey, retriesKey, 1)
+        .lPush(waitingQueueKey, job.id)
+        .lRem(processingQueueKey, 1, job.id)
+        .exec();
+      return;
+    }
+
     // log the error
     this.logger.warn("WorkerFunction failed", {
       ...propertiesToLog,
       error,
     });
 
-    const jobKey = keyFormatter.job(job.id);
     const propertiesToSave = {
       [DONE_FIELD]: true,
       [FAILED_FIELD]: true,
@@ -634,11 +679,7 @@ export default class Worker<
 
     // remove the job from the processing queue
     await this.nonBlockingRedis
-      .lRem(
-        keyFormatter.processingQueueName(this.queue.name, priority),
-        1,
-        job.id
-      )
+      .lRem(processingQueueKey, 1, job.id)
       .catch((err) => {
         this.logger.error("Failed to remove failed job from processing queue", {
           ...propertiesToLog,
