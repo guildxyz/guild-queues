@@ -17,6 +17,7 @@ export type Web3InboxLookupAttributes = "guildId";
 export type Web3InboxJobOptions = {
   priority: number;
   requestHeaders: object;
+  messageId: number;
   guildId: number;
   notification: Notification;
   recipients: string[];
