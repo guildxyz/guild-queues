@@ -34,8 +34,5 @@ export const DELAY_TIMESTAMP_FIELD = "delayReadyTimestamp";
 // the reason why the job was delayed
 export const DELAY_REASON_FIELD = "delayReason";
 
-// number of times the job was retries
-export const RETRIES_KEY_PREFIX = "retries";
-
 // whey we don't have a groupJobKey in the limiter, we need a default value for the redis keys
 export const DEFAULT_LIMITER_GROUP_NAME = "default";

@@ -1,6 +1,11 @@
 import { createClient } from "redis";
 import { DogStatsD, FlowMonitorOptions, ILogger, RedisClient } from "./types";
-import { delay, getQueueNameJobIdPair, keyFormatter } from "../utils";
+import {
+  delay,
+  getQueueNameJobIdPair,
+  handleRetries,
+  keyFormatter,
+} from "../utils";
 import {
   DEFAULT_LOG_META,
   DONE_FIELD,
@@ -123,11 +128,17 @@ export default class FlowMonitor {
    * @returns whether there's a lock associated with it
    */
   private checkJobLock = async (
-    queueName: string,
+    queue: Queue,
     priority: number,
     jobId: string
   ) => {
+    const queueName = queue.name;
     const queueNameJobIdPair = getQueueNameJobIdPair(queueName, jobId);
+    const propertiesToLog = {
+      ...DEFAULT_LOG_META,
+      queueName,
+      jobId,
+    };
 
     const lock = await this.redis.get(keyFormatter.lock(queueName, jobId));
     if (lock) {
@@ -137,12 +148,27 @@ export default class FlowMonitor {
 
     // if the job fails for the first time, it's possible that the job is just leased but the lock hasn't been inserted yet
     if (!this.lockMissingQueueNameJobIdPairsSet.has(queueNameJobIdPair)) {
-      this.logger.info("Job lock not found for the first time", {
-        ...DEFAULT_LOG_META,
-        queueName,
-        jobId,
-      });
+      this.logger.info(
+        "Job lock not found for the first time",
+        propertiesToLog
+      );
       this.lockMissingQueueNameJobIdPairsSet.add(queueNameJobIdPair);
+      return true;
+    }
+
+    // handle retries
+    const { retried, retries } = await handleRetries(
+      jobId,
+      queue,
+      priority,
+      this.redis
+    );
+    if (retried) {
+      this.logger.info("Job lock missing, retrying", {
+        ...propertiesToLog,
+        retries,
+        maxRetries: queue.maxRetries,
+      });
       return true;
     }
 
@@ -162,11 +188,7 @@ export default class FlowMonitor {
     if (removedCount === 0) {
       this.logger.info(
         "Job was removed from processing queue while checking lock",
-        {
-          ...DEFAULT_LOG_META,
-          queueName,
-          jobId,
-        }
+        propertiesToLog
       );
       this.lockMissingQueueNameJobIdPairsSet.delete(queueNameJobIdPair);
       return true;
@@ -268,7 +290,7 @@ export default class FlowMonitor {
             await Promise.all(
               processingJobIds.map(async (jobId) => ({
                 jobId,
-                valid: await this.checkJobLock(queue.name, priority, jobId),
+                valid: await this.checkJobLock(queue, priority, jobId),
               }))
             )
           )

@@ -112,7 +112,6 @@ export type BaseJobParams = {
   priority: number;
   correlationId: string;
   delay?: boolean;
-  [key: `retries:${string}`]: number;
 };
 
 /**

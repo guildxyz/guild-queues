@@ -1,4 +1,5 @@
 import { uuidv7 } from "uuidv7";
+import Queue from "./base/Queue";
 import { AnyObject, ICorrelator, ILogger, RedisClient } from "./base/types";
 import { FlowNames } from "./flows/types";
 import {
@@ -125,6 +126,7 @@ export const keyFormatter = {
     `${COUNTER_KEY_PREFIX}:delay:calls:${queueName}:${groupName}:${currentTimeWindow}`,
   delayEnqueued: (limiterId: string, groupName: string) =>
     `${COUNTER_KEY_PREFIX}:delay:enqueued:${limiterId}:${groupName}`,
+  retries: (queueName: string): `retries:${string}` => `retries:${queueName}`,
 };
 
 export const getLookupKeys = (
@@ -174,3 +176,36 @@ export const getQueueNameJobIdPair = (
   queueName: string,
   jobId: string
 ): `${string}-${string}` => `${queueName}-${jobId}`;
+
+/**
+ * Check if the job should be retried, if yes puts it back to the waiting queue
+ * @returns whether the job was "retried"
+ */
+export const handleRetries = async (
+  jobId: string,
+  queue: Queue,
+  priority: number,
+  nonBlockingRedis: RedisClient
+): Promise<{ retried: boolean; retries?: number }> => {
+  const jobKey = keyFormatter.job(jobId);
+  const waitingQueueKey = keyFormatter.waitingQueueName(queue.name, priority);
+  const processingQueueKey = keyFormatter.processingQueueName(
+    queue.name,
+    priority
+  );
+  const retriesKey = keyFormatter.retries(queue.name);
+
+  const retries = +(await nonBlockingRedis.hGet(jobId, retriesKey)) || 0;
+
+  if (retries < queue.maxRetries) {
+    await nonBlockingRedis
+      .multi()
+      .hIncrBy(jobKey, retriesKey, 1)
+      .lPush(waitingQueueKey, jobId)
+      .lRem(processingQueueKey, 1, jobId)
+      .exec();
+    return { retried: true, retries };
+  }
+
+  return { retried: false };
+};

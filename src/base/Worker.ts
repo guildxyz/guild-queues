@@ -21,6 +21,7 @@ import {
   keyFormatter,
   bindIdToCorrelator,
   delay,
+  handleRetries,
 } from "../utils";
 import {
   DEFAULT_LIMITER_GROUP_NAME,
@@ -36,7 +37,6 @@ import {
   FAILED_FIELD,
   FAILED_QUEUE_FIELD,
   IS_DELAY_FIELD,
-  RETRIES_KEY_PREFIX,
 } from "../static";
 
 /**
@@ -172,15 +172,11 @@ export default class Worker<
     });
 
     // get the job attributes
-    const attributesToGet = [
-      ...this.queue.attributesToGet,
-      `${RETRIES_KEY_PREFIX}:${this.queue.name}`,
-    ];
     const jobKey = keyFormatter.job(jobId);
     const attributes = await hGetMore(
       this.nonBlockingRedis,
       jobKey,
-      attributesToGet
+      this.queue.attributesToGet
     );
 
     const propertiesToLog = {
@@ -613,14 +609,6 @@ export default class Worker<
     };
 
     const jobKey = keyFormatter.job(job.id);
-    const waitingQueueKey = keyFormatter.waitingQueueName(
-      this.queue.name,
-      priority
-    );
-    const processingQueueKey = keyFormatter.processingQueueName(
-      this.queue.name,
-      priority
-    );
 
     // if the job was (most likely externally) deleted, we shouldn't write to redis
     const existsResult = await this.nonBlockingRedis.exists(jobKey);
@@ -631,25 +619,18 @@ export default class Worker<
       );
     }
 
-    // handle retries
-    const retriesKey: `retries:${string}` = `retries:${this.queue.name}`;
-    const retries = job[retriesKey] ? job[retriesKey] : 0;
-    console.log(`retries ${retriesKey}`);
-    console.log(`job.retries ${job[retriesKey]}`);
-    console.log(`retries ${retries}`);
-    console.log(`this.queue.maxRetries ${this.queue.maxRetries}`);
-    if (retries < this.queue.maxRetries) {
+    const { retried, retries } = await handleRetries(
+      job.id,
+      this.queue,
+      priority,
+      this.nonBlockingRedis
+    );
+    if (retried) {
       this.logger.info("WorkerFunction error, retrying", {
         ...propertiesToLog,
         retries,
         maxRetries: this.queue.maxRetries,
       });
-      await this.nonBlockingRedis
-        .multi()
-        .hIncrBy(jobKey, retriesKey, 1)
-        .lPush(waitingQueueKey, job.id)
-        .lRem(processingQueueKey, 1, job.id)
-        .exec();
       return;
     }
 
@@ -678,6 +659,10 @@ export default class Worker<
     );
 
     // remove the job from the processing queue
+    const processingQueueKey = keyFormatter.processingQueueName(
+      this.queue.name,
+      priority
+    );
     await this.nonBlockingRedis
       .lRem(processingQueueKey, 1, job.id)
       .catch((err) => {
