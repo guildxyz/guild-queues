@@ -24,6 +24,7 @@ export type CreateAccessJobOptions = {
   onlyForThisPlatform?: string;
   correlationId: string;
   shareSocials?: boolean;
+  rootAuditLogId?: number;
 };
 
 /**
@@ -146,6 +147,7 @@ export type UpdateMembershipParams = AccessFlowParams & {
   roleAccesses: RoleAccess[];
   manageRewards: boolean;
   shareSocials?: boolean;
+  rootAuditLogId?: number;
 };
 
 /**
@@ -157,6 +159,7 @@ export type UpdateMembershipResult = AccessFlowResult & {
     lostMembershipRoleIds: number[];
     membershipRoleIds: number[];
     notMemberRoleIds: number[];
+    roleIdAuditLogIdMap: Record<string, number>;
   };
 };
 
@@ -170,6 +173,7 @@ export type ManageRewardBase = {
   platformGuildId: string;
   platformGuildData?: AnyObject;
   platformOwnerData?: AnyObject;
+  parentAuditLogId?: number;
   platformRoles: {
     platformRoleId: string;
     platformRoleData?: AnyObject;
@@ -210,6 +214,7 @@ export type PrepareManageRewardParams = AccessFlowParams &
   UpdateMembershipResult & {
     forceRewardActions: boolean;
     onlyForThisPlatform?: string;
+    rootAuditLogId?: number;
   };
 
 /**
