@@ -156,7 +156,8 @@ export default class FlowMonitor {
       return true;
     }
 
-    // handle retries
+    // we handle retries through detecting failed jobs (no lock preset for the job)
+    // if a job failed and the current retries < maxRetries, we retry it
     const { retried, retries } = await handleRetries(
       jobId,
       queue,
