@@ -26,6 +26,7 @@ const getStatusUpdateFlowProps = (): FlowProps => {
         },
       ],
       nextQueueName: "access-check" as StatusUpdateFlowJob["queueName"],
+      maxRetries: 10, // this is for the parent queue only, not the child queues
     },
     accessCheckQueue,
     {

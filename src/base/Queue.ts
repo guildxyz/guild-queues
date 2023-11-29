@@ -52,6 +52,11 @@ export default class Queue {
   readonly delayable: boolean;
 
   /**
+   * Number of retries before marking the job failed.
+   */
+  readonly maxRetries: number;
+
+  /**
    * Sets the properties
    * @param options parameters of the queue
    */
@@ -65,6 +70,7 @@ export default class Queue {
       limiter,
       priorities,
       delayable,
+      maxRetries,
     } = options;
 
     // set properties
@@ -79,6 +85,7 @@ export default class Queue {
       : undefined;
     this.attributesToGet = attributesToGet || [];
     this.priorities = priorities || 1;
+    this.maxRetries = maxRetries || 0;
     this.delayable = delayable ?? false;
     this.nextQueueName = nextQueueName;
     this.nextQueueMap = nextQueueMap || new Map();

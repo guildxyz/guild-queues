@@ -207,6 +207,11 @@ export type QueueOptions<NextQueueName extends string = string> = {
    * If it's true it will monitor the queue's delay queue as well
    */
   delayable?: boolean;
+
+  /**
+   * Number of retries before marking the job failed.
+   */
+  maxRetries?: number;
 };
 
 /**

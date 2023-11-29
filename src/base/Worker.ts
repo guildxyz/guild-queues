@@ -21,6 +21,7 @@ import {
   keyFormatter,
   bindIdToCorrelator,
   delay,
+  handleRetries,
 } from "../utils";
 import {
   DEFAULT_LIMITER_GROUP_NAME,
@@ -607,13 +608,38 @@ export default class Worker<
       job,
     };
 
+    const jobKey = keyFormatter.job(job.id);
+
+    // if the job was (most likely externally) deleted, we shouldn't write to redis
+    const existsResult = await this.nonBlockingRedis.exists(jobKey);
+    if (existsResult === 0) {
+      this.logger.info(
+        "handleWorkerFunctionError skipped (job key does not exists)",
+        propertiesToLog
+      );
+    }
+
+    const { retried, retries } = await handleRetries(
+      job.id,
+      this.queue,
+      priority,
+      this.nonBlockingRedis
+    );
+    if (retried) {
+      this.logger.info("WorkerFunction error, retrying", {
+        ...propertiesToLog,
+        retries,
+        maxRetries: this.queue.maxRetries,
+      });
+      return;
+    }
+
     // log the error
     this.logger.warn("WorkerFunction failed", {
       ...propertiesToLog,
       error,
     });
 
-    const jobKey = keyFormatter.job(job.id);
     const propertiesToSave = {
       [DONE_FIELD]: true,
       [FAILED_FIELD]: true,
@@ -633,12 +659,12 @@ export default class Worker<
     );
 
     // remove the job from the processing queue
+    const processingQueueKey = keyFormatter.processingQueueName(
+      this.queue.name,
+      priority
+    );
     await this.nonBlockingRedis
-      .lRem(
-        keyFormatter.processingQueueName(this.queue.name, priority),
-        1,
-        job.id
-      )
+      .lRem(processingQueueKey, 1, job.id)
       .catch((err) => {
         this.logger.error("Failed to remove failed job from processing queue", {
           ...propertiesToLog,

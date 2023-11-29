@@ -13,6 +13,7 @@ export const manageRewardQueue = new Queue({
     ["access", "access-result"],
     ["status-update", "status-update-result"],
   ]),
+  maxRetries: 10, // this is for the parent queue only, not the child queues
   children: [
     {
       queueName: "discord",
@@ -57,6 +58,7 @@ export const accessCheckQueue = new Queue({
     ["access", "access-logic"],
     ["status-update", "bulk-access-logic"],
   ]),
+  maxRetries: 10, // this is for the parent queue only, not the child queues
   children: [
     {
       queueName: "requirement",
