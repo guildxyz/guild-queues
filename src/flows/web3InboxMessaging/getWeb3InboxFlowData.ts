@@ -10,7 +10,6 @@ const getWeb3InboxMessagingProps = (): FlowProps => {
     {
       queueName: "send-web3inbox-message",
       attributesToGet: [
-        "requestHeaders",
         "messageId",
         "guildId",
         "notification",
