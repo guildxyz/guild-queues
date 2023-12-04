@@ -33,6 +33,7 @@ const getStatusUpdateFlowProps = (): FlowProps => {
       queueName: "bulk-access-logic",
       attributesToGet: [
         ...defaultAttributesToGet,
+        "children:access-check:jobs",
         "children:bulk-access-check:jobs",
         "updateMemberships",
       ],

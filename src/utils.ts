@@ -195,7 +195,7 @@ export const handleRetries = async (
   );
   const retriesKey = keyFormatter.retries(queue.name);
 
-  const retries = +(await nonBlockingRedis.hGet(jobId, retriesKey)) || 0;
+  const retries = +(await nonBlockingRedis.hGet(jobKey, retriesKey)) || 0;
 
   if (retries < queue.maxRetries) {
     await nonBlockingRedis

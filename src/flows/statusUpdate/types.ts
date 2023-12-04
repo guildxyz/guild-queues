@@ -74,6 +74,7 @@ export type BulkAccessCheckResult = StatusUpdateFlowResult & {
 };
 
 export type BulkAccessLogicParams = StatusUpdateFlowParams & {
+  "children:access-check:jobs": string[];
   "children:bulk-access-check:jobs": string[];
   updateMemberships: boolean;
 };
