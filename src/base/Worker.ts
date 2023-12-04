@@ -525,6 +525,7 @@ export default class Worker<
                 ...propertiesToLog,
                 time,
                 job,
+                result,
                 failed: !result,
               });
 
