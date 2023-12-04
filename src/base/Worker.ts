@@ -630,6 +630,7 @@ export default class Worker<
         ...propertiesToLog,
         retries,
         maxRetries: this.queue.maxRetries,
+        error,
       });
       return;
     }
