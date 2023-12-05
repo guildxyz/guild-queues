@@ -173,10 +173,22 @@ export type ManageRewardBase = {
   platformGuildId: string;
   platformGuildData?: AnyObject;
   platformOwnerData?: AnyObject;
-  parentAuditLogId?: number;
+  parentAuditLogIds?: {
+    rolePlatformId: number;
+    parentAuditLogId: number;
+  }[];
   platformRoles: {
     platformRoleId: string;
     platformRoleData?: AnyObject;
+  }[];
+};
+
+export type DataForRewardAuditLog = {
+  userId: number;
+  guildId: number;
+  rolePlatforms: {
+    roleId: number;
+    rolePlatformId: number;
   }[];
 };
 
@@ -188,6 +200,7 @@ export type ManageRewardChildParams = {
   priority: number;
   platformGuildId: string;
   manageRewardAction: ManageRewardBase; // nested, because this way we only need to HGET one field
+  dataForAuditLog: DataForRewardAuditLog;
 };
 
 /**
@@ -196,6 +209,7 @@ export type ManageRewardChildParams = {
 export type ManageRewardParams = BaseJobParams & {
   platformGuildId: string;
   manageRewardAction: ManageRewardBase;
+  dataForAuditLog: DataForRewardAuditLog;
 };
 
 /**

@@ -1,7 +1,7 @@
 import Queue from "../base/Queue";
 
 // all manage reward child jobs only need the manageRewardAction attribute
-const manageRewardAttributeToGet = ["manageRewardAction"];
+const manageRewardAttributeToGet = ["manageRewardAction", "dataForAuditLog"];
 
 export const manageRewardQueue = new Queue({
   queueName: "manage-reward",
