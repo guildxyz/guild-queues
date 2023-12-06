@@ -179,7 +179,7 @@ export const getQueueNameJobIdPair = (
 
 /**
  * Check if the job should be retried, if yes puts it back to the waiting queue
- * @returns whether the job was "retried"
+ * @returns whether the job was "retried", if yes the current number of retries
  */
 export const handleRetries = async (
   jobId: string,

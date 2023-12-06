@@ -32,6 +32,7 @@ const getAccessFlowProps = (): FlowProps => {
         "roleAccesses",
         "manageRewards",
         "shareSocials",
+        "rootAuditLogId",
       ],
     },
     {
@@ -42,6 +43,7 @@ const getAccessFlowProps = (): FlowProps => {
         "guildId",
         "forceRewardActions",
         "onlyForThisPlatform",
+        "rootAuditLogId",
       ],
       nextQueueName: "manage-reward",
     },
