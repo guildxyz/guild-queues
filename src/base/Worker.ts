@@ -247,7 +247,7 @@ export default class Worker<
     if (nextQueueName) {
       const nextQueueKey = keyFormatter.waitingQueueName(
         nextQueueName,
-        priority
+        job.priority
       );
       transaction.rPush(nextQueueKey, job.id);
     }
