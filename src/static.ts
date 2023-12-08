@@ -34,5 +34,5 @@ export const DELAY_TIMESTAMP_FIELD = "delayReadyTimestamp";
 // the reason why the job was delayed
 export const DELAY_REASON_FIELD = "delayReason";
 
-// whey we don't have a groupJobKey in the limiter, we need a default value for the redis keys
+// when we don't have a groupJobKey in the limiter we need a default value for the redis keys
 export const DEFAULT_LIMITER_GROUP_NAME = "default";
