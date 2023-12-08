@@ -202,11 +202,7 @@ export default class Worker<
    * @param result the result of the job
    * @returns whether it was successful
    */
-  private async complete(
-    job: Params,
-    priority: number,
-    result?: Result
-  ): Promise<boolean> {
+  private async complete(job: Params, result?: Result): Promise<boolean> {
     const propertiesToLog = {
       ...DEFAULT_LOG_META,
       queueName: this.queue.name,
@@ -258,7 +254,7 @@ export default class Worker<
 
     // remove it from the current one
     transaction.lRem(
-      keyFormatter.processingQueueName(this.queue.name, priority),
+      keyFormatter.processingQueueName(this.queue.name, job.priority),
       1,
       job.id
     );
@@ -268,7 +264,7 @@ export default class Worker<
 
     // get the processing queues length
     transaction.lLen(
-      keyFormatter.processingQueueName(this.queue.name, priority)
+      keyFormatter.processingQueueName(this.queue.name, job.priority)
     );
 
     const [
@@ -337,11 +333,7 @@ export default class Worker<
    * @param job The job to execute
    * @returns whether the job was delayed
    */
-  private delayJobIfLimited = async (
-    job: Params,
-    priority: number,
-    groupName: string
-  ) => {
+  private delayJobIfLimited = async (job: Params, groupName: string) => {
     const queueName = this.queue.name;
 
     const currentTimeWindow = Math.floor(
@@ -371,7 +363,7 @@ export default class Worker<
         Math.floor(enqueuedCount / this.queue.limiter.reservoir) *
           this.queue.limiter.intervalMs;
 
-      await this.delayJob(job.id, priority, "limiter", readyTimestamp);
+      await this.delayJob(job.id, job.priority, "limiter", readyTimestamp);
 
       return true;
     }
@@ -394,6 +386,7 @@ export default class Worker<
           flowName: job.flowName,
           workerId: this.id,
           lockTimeSec: this.lockTimeSec,
+          priority: job.priority,
         });
         reject(
           new Error(`Execution timeout of ${this.lockTimeSec} seconds exceeded`)
@@ -430,10 +423,10 @@ export default class Worker<
       }
       // else => isMultiPriority === false, so it uses BLMOVE so we don't need to wait here
     }
-    return { job, priority };
+    return job;
   };
 
-  private delayWrapper = async (job: Params, priority: number) => {
+  private delayWrapper = async (job: Params) => {
     if (this.queue.limiter) {
       const groupName = this.queue.limiter.groupJobKey
         ? (job as any)[this.queue.limiter.groupJobKey]
@@ -461,12 +454,12 @@ export default class Worker<
           queueName: this.queue.name,
           workerId: this.id,
           jobId: job.id,
-          priority,
+          priority: job.priority,
           transactionResult,
         });
       }
 
-      const isLimited = await this.delayJobIfLimited(job, priority, groupName);
+      const isLimited = await this.delayJobIfLimited(job, groupName);
       if (isLimited) {
         return true;
       }
@@ -475,24 +468,14 @@ export default class Worker<
     return false;
   };
 
-  private executeWrapper = async (job: Params, priority: number) => {
-    let result: Result;
+  private executeWrapper = async (job: Params) => {
     // this isolates error boundaries between "consumer-error" and "queue-lib-error"
     try {
-      result = await this.executeWithDeadline(job);
+      const result = await this.executeWithDeadline(job);
+      return { result };
     } catch (error: any) {
-      if (error instanceof DelayError) {
-        await this.delayJob(
-          job.id,
-          priority,
-          error.message,
-          error.readyTimestamp
-        );
-      } else {
-        await this.handleWorkerFunctionError(job, priority, error);
-      }
+      return error;
     }
-    return result;
   };
 
   /**
@@ -503,7 +486,7 @@ export default class Worker<
 
     while (this.status === "running") {
       try {
-        const { job, priority } = await this.leaseWrapper();
+        const job = await this.leaseWrapper();
         if (!job) break;
 
         await new Promise((resolve) => {
@@ -511,14 +494,14 @@ export default class Worker<
             // if there's a job execute it
             // else check if worker is still running and retry
             if (job) {
-              const isDelayed = await this.delayWrapper(job, priority);
+              const isDelayed = await this.delayWrapper(job);
               if (isDelayed) {
                 resolve(0);
                 return;
               }
 
               const start = performance.now();
-              const result = await this.executeWrapper(job, priority);
+              const { result, error } = await this.executeWrapper(job);
               const time = performance.now() - start;
               this.logger.info("Job executed", {
                 ...DEFAULT_LOG_META,
@@ -526,11 +509,25 @@ export default class Worker<
                 time,
                 job,
                 result,
+                error,
                 failed: !result,
               });
 
+              if (error) {
+                if (error instanceof DelayError) {
+                  await this.delayJob(
+                    job.id,
+                    job.priority,
+                    error.message,
+                    error.readyTimestamp
+                  );
+                } else {
+                  await this.handleWorkerFunctionError(job, error);
+                }
+              }
+
               if (result) {
-                await this.complete(job, priority, result);
+                await this.complete(job, result);
               }
             }
 
@@ -595,11 +592,7 @@ export default class Worker<
    * @param jobId The jobs's id
    * @param error The error thrown by the workerFunction
    */
-  private handleWorkerFunctionError = async (
-    job: Params,
-    priority: number,
-    error: any
-  ) => {
+  private handleWorkerFunctionError = async (job: Params, error: any) => {
     const propertiesToLog = {
       ...DEFAULT_LOG_META,
       queueName: this.queue.name,
@@ -607,6 +600,7 @@ export default class Worker<
       workerId: this.id,
       jobId: job.id,
       job,
+      priority: job.priority,
     };
 
     const jobKey = keyFormatter.job(job.id);
@@ -623,7 +617,7 @@ export default class Worker<
     const { retried, retries } = await handleRetries(
       job.id,
       this.queue,
-      priority,
+      job.priority,
       this.nonBlockingRedis
     );
     if (retried) {
@@ -663,7 +657,7 @@ export default class Worker<
     // remove the job from the processing queue
     const processingQueueKey = keyFormatter.processingQueueName(
       this.queue.name,
-      priority
+      job.priority
     );
     await this.nonBlockingRedis
       .lRem(processingQueueKey, 1, job.id)
@@ -690,6 +684,7 @@ export default class Worker<
       jobId,
       reason,
       readyTimestamp,
+      priority,
     };
 
     this.logger.info("Job will be delayed", propertiesToLog);
