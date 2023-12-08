@@ -63,13 +63,12 @@ export type BulkAccessCheckParams = StatusUpdatify<AccessCheckParams> &
 export type BulkAccessCheckResult = StatusUpdateFlowResult & {
   [DONE_FIELD]: true;
   requirementId: number;
-  errors?: RequirementError[];
+  requirementError?: RequirementError;
   users: {
     userId: number;
     access: boolean;
     amount?: number;
-    warning?: RequirementError;
-    error?: RequirementError;
+    userLevelErrors?: RequirementError[];
   }[];
 };
 
