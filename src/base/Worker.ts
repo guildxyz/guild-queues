@@ -291,7 +291,7 @@ export default class Worker<
     let abortSuccessful: boolean;
     if (nextQueueName) {
       const abortResult = await this.nonBlockingRedis.lRem(
-        keyFormatter.waitingQueueName(this.queue.nextQueueName, priority),
+        keyFormatter.waitingQueueName(this.queue.nextQueueName, job.priority),
         -1,
         job.id
       );
