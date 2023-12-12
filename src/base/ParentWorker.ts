@@ -40,6 +40,15 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
     job,
     timeout
   ) => {
+    const propertiesToLog = {
+      ...DEFAULT_LOG_META,
+      queueName: this.queue.name,
+      priority: job.priority,
+      flowName: job.flowName,
+      workerId: this.id,
+      jobId: job.id,
+    };
+
     // get the params and ids (if they exist) of the child jobs from redis
     const jobKey = keyFormatter.job(job.id);
     const childParamsKey = keyFormatter.childrenParams(this.queue.name);
@@ -60,13 +69,10 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
       const newJobs: string[] = [];
       params.forEach((param) => {
         if (!param.childName) {
-          this.logger.warn("Child name is missing in child params", {
-            ...DEFAULT_LOG_META,
-            queueName: this.queue.name,
-            flowName: job.flowName,
-            workerId: this.id,
-            jobId: job.id,
-          });
+          this.logger.warn(
+            "Child name is missing in child params",
+            propertiesToLog
+          );
           return;
         }
 
@@ -113,7 +119,17 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
       jobs.forEach((j) => {
         transaction.hGet(j, DONE_FIELD);
       });
+      transaction.exists(jobKey);
       const results = await transaction.exec();
+
+      const existsResult = results.pop();
+      if (existsResult === 0) {
+        this.logger.info(
+          "ParentWorker terminates, job key does not exists",
+          propertiesToLog
+        );
+        break;
+      }
 
       // check if all of them are done
       if (results.every((r) => r === "true")) {
