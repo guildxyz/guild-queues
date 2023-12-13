@@ -8,3 +8,4 @@ export * from "./flows/flows";
 export * from "./flows/access/types";
 export * from "./flows/statusUpdate/types";
 export * from "./flows/web3InboxMessaging/types";
+export * from "./flows/xmtpMessaging/types";

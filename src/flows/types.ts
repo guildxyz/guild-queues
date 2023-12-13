@@ -17,6 +17,12 @@ import {
   Web3InboxMessagingContent,
   Web3InboxMessagingJob,
 } from "./web3InboxMessaging/types";
+import {
+  XmtpJobOptions,
+  XmtpLookupAttributes,
+  XmtpMessagingContent,
+  XmtpMessagingJob,
+} from "./xmtpMessaging/types";
 
 export type FlowTypes = {
   access: {
@@ -36,6 +42,12 @@ export type FlowTypes = {
     content: Web3InboxMessagingContent;
     createJobOptions: Web3InboxJobOptions;
     lookupAttributes: Web3InboxLookupAttributes;
+  };
+  "xmtp-messaging": {
+    job: XmtpMessagingJob;
+    content: XmtpMessagingContent;
+    createJobOptions: XmtpJobOptions;
+    lookupAttributes: XmtpLookupAttributes;
   };
 };
 
