@@ -116,7 +116,8 @@ export type AccessCheckResult = AccessFlowResult & {
   requirementId: number;
   access: boolean;
   amount?: number;
-  error?: RequirementError;
+  requirementError?: RequirementError;
+  userLevelErrors?: RequirementError[];
 };
 
 /**

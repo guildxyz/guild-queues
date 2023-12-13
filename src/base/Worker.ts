@@ -474,7 +474,7 @@ export default class Worker<
       const result = await this.executeWithDeadline(job);
       return { result };
     } catch (error: any) {
-      return error;
+      return { error };
     }
   };
 
