@@ -10,7 +10,7 @@ export type XmtpJobOptions = {
   priority: number;
   messageId: number;
   guildId: number;
-  message: string;
+  notification: string;
   recipients: string[];
   readyTimestamp?: Date;
 };
