@@ -1,18 +1,16 @@
 import Queue from "../../base/Queue";
 import { QueueOptions } from "../../base/types";
 import { FlowProps } from "../types";
-import { Web3InboxMessagingJob } from "./types";
+import { MessagingJob } from "./types";
 
-const getWeb3InboxMessagingProps = (): FlowProps => {
+const getMessagingProps = (): FlowProps => {
   const lookupAttributes = ["guildId"];
 
-  const queueOptions: (
-    | QueueOptions<Web3InboxMessagingJob["queueName"]>
-    | Queue
-  )[] = [
+  const queueOptions: (QueueOptions<MessagingJob["queueName"]> | Queue)[] = [
     {
-      queueName: "send-web3inbox-message",
+      queueName: "send-message",
       attributesToGet: [
+        "protocol",
         "messageId",
         "guildId",
         "notification",
@@ -35,4 +33,4 @@ const getWeb3InboxMessagingProps = (): FlowProps => {
   };
 };
 
-export default getWeb3InboxMessagingProps;
+export default getMessagingProps;

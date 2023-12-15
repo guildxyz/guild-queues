@@ -6,23 +6,17 @@ import {
   CreateAccessJobOptions,
 } from "./access/types";
 import {
+  MessagingContent,
+  MessagingJob,
+  MessagingJobOptions,
+  MessagingLookupAttributes,
+} from "./messaging/types";
+import {
   CreateStatusUpdateJobOptions,
   StatusUpdateFlowJob,
   StatusUpdateJobContent,
   StatusUpdateLookupAttributes,
 } from "./statusUpdate/types";
-import {
-  Web3InboxJobOptions,
-  Web3InboxLookupAttributes,
-  Web3InboxMessagingContent,
-  Web3InboxMessagingJob,
-} from "./web3InboxMessaging/types";
-import {
-  XmtpJobOptions,
-  XmtpLookupAttributes,
-  XmtpMessagingContent,
-  XmtpMessagingJob,
-} from "./xmtpMessaging/types";
 
 export type FlowTypes = {
   access: {
@@ -37,17 +31,11 @@ export type FlowTypes = {
     createJobOptions: CreateStatusUpdateJobOptions;
     lookupAttributes: StatusUpdateLookupAttributes;
   };
-  "web3inbox-messaging": {
-    job: Web3InboxMessagingJob;
-    content: Web3InboxMessagingContent;
-    createJobOptions: Web3InboxJobOptions;
-    lookupAttributes: Web3InboxLookupAttributes;
-  };
-  "xmtp-messaging": {
-    job: XmtpMessagingJob;
-    content: XmtpMessagingContent;
-    createJobOptions: XmtpJobOptions;
-    lookupAttributes: XmtpLookupAttributes;
+  messaging: {
+    job: MessagingJob;
+    content: MessagingContent;
+    createJobOptions: MessagingJobOptions;
+    lookupAttributes: MessagingLookupAttributes;
   };
 };
 
