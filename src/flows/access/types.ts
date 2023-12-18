@@ -171,6 +171,7 @@ export type ManageRewardBase = {
   action: "ADD" | "REMOVE";
   platformId: number;
   platformUserId: string;
+  platformUserData?: AnyObject;
   platformGuildId: string;
   platformGuildData?: AnyObject;
   platformOwnerData?: AnyObject;
