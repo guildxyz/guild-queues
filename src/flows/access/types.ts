@@ -342,16 +342,18 @@ export type AccessLookupAttributes = "userId" | "roleIds" | "guildId";
 export type AccessJobContent = CreateAccessJobOptions &
   BaseJobParams &
   ManagedJobFields &
-  AccessPreparationJob["result"] &
-  AccessLogicJob["result"] &
-  UpdateMembershipJob["result"] &
-  PrepareManageRewardJob["result"] &
-  ManageRewardJob["result"] &
-  AccessResultJob["result"] & {
+  AccessFlowResult &
+  Omit<AccessPreparationResult, "nextQueue"> &
+  Omit<AccessLogicResult, "nextQueue"> &
+  Omit<UpdateMembershipResult, "nextQueue"> &
+  Omit<PrepareManageRewardResult, "nextQueue"> &
+  Omit<ManageRewardResult, "nextQueue"> &
+  Omit<AccessResultResult, "nextQueue"> & {
     "children:access-check:jobs": (AccessCheckResult &
       BaseJobParams &
       ManagedJobFields)[];
-    "children:manage-reward:jobs": (ManageRewardResult &
+    "children:manage-reward:jobs": (ManageRewardParams &
+      ManageRewardResult &
       BaseJobParams &
       ManagedJobFields)[];
   };

@@ -179,13 +179,14 @@ export type StatusUpdateLookupAttributes = "roleIds" | "guildId";
 export type StatusUpdateJobContent = CreateStatusUpdateJobOptions &
   BaseJobParams &
   ManagedJobFields &
-  StatusUpdatePreparationJob["result"] &
-  BulkAccessCheckJob["result"] &
-  BulkAccessLogicJob["result"] &
-  BulkUpdateMembershipJob["result"] &
-  BulkPrepareManageRewardJob["result"] &
-  ManageRewardJob["result"] &
-  StatusUpdateResultJob["result"] & {
+  StatusUpdateFlowResult &
+  Omit<StatusUpdatePreparationResult, "nextQueue"> &
+  Omit<BulkAccessCheckResult, "nextQueue"> &
+  Omit<BulkAccessLogicResult, "nextQueue"> &
+  Omit<BulkUpdateMembershipResult, "nextQueue"> &
+  Omit<BulkPrepareManageRewardResult, "nextQueue"> &
+  Omit<ManageRewardResult, "nextQueue"> &
+  Omit<StatusUpdateResultResult, "nextQueue"> & {
     "children:access-check:jobs": (AccessCheckResult &
       BaseJobParams &
       ManagedJobFields)[];
