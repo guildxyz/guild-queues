@@ -11,6 +11,7 @@ import {
   CreateAccessJobOptions,
   ManageRewardChildParams,
   ManageRewardJob,
+  ManageRewardParams,
   ManageRewardResult,
   RequirementError,
 } from "../access/types";
@@ -187,13 +188,15 @@ export type StatusUpdateJobContent = CreateStatusUpdateJobOptions &
   Omit<BulkPrepareManageRewardResult, "nextQueue"> &
   Omit<ManageRewardResult, "nextQueue"> &
   Omit<StatusUpdateResultResult, "nextQueue"> & {
-    "children:access-check:jobs": (AccessCheckResult &
+    "children:access-check:jobs": (AccessCheckParams &
+      AccessCheckResult &
       BaseJobParams &
       ManagedJobFields)[];
     "children:bulk-access-check:jobs": (BulkAccessCheckResult &
       BaseJobParams &
       ManagedJobFields)[];
-    "children:manage-reward:jobs": (ManageRewardResult &
+    "children:manage-reward:jobs": (ManageRewardParams &
+      ManageRewardResult &
       BaseJobParams &
       ManagedJobFields)[];
   };
