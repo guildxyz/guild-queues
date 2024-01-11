@@ -20,7 +20,9 @@ export default class Queue {
    * If the queue is part of multiple flows, it probably has multiple next queues
    * This map maps the flow names to the next queues
    */
-  readonly nextQueueMap: Map<string, string>;
+  readonly nextQueueNameMap: Map<string, string>;
+
+  readonly nextQueuePriorityDiffMap: Map<string, number>;
 
   /**
    * Job attributes to query when fetching a job
@@ -64,13 +66,14 @@ export default class Queue {
     const {
       queueName,
       nextQueueName,
-      nextQueueMap,
+      nextQueueNameMap,
       attributesToGet,
       children,
       limiter,
       priorities,
       delayable,
       maxRetries,
+      nextQueuePriorityDiffMap,
     } = options;
 
     // set properties
@@ -88,7 +91,8 @@ export default class Queue {
     this.maxRetries = maxRetries || 0;
     this.delayable = delayable ?? false;
     this.nextQueueName = nextQueueName;
-    this.nextQueueMap = nextQueueMap || new Map();
+    this.nextQueueNameMap = nextQueueNameMap || new Map();
+    this.nextQueuePriorityDiffMap = nextQueuePriorityDiffMap || new Map();
 
     // add default attributes (except the id which is always present because Worker.lease adds it to the job)
     const defaultAttributesToGet: (keyof BaseJobParams)[] = [

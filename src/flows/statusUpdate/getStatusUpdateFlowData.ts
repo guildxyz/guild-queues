@@ -26,6 +26,7 @@ const getStatusUpdateFlowProps = (): FlowProps => {
         },
       ],
       nextQueueName: "access-check" as StatusUpdateFlowJob["queueName"],
+      nextQueuePriorityDiffMap: new Map([["status-update", +1]]), // increase priority by one
       maxRetries: 10, // this is for the parent queue only, not the child queues
     },
     accessCheckQueue,
@@ -56,6 +57,7 @@ const getStatusUpdateFlowProps = (): FlowProps => {
         "onlyForThisPlatform",
       ],
       nextQueueName: "manage-reward",
+      nextQueuePriorityDiffMap: new Map([["status-update", +1]]), // increase priority by one
     },
     manageRewardQueue,
     {

@@ -180,7 +180,8 @@ export type QueueOptions<NextQueueName extends string = string> = {
    * If the queue is part of multiple flows, it probably has multiple next queues
    * This map maps the flow names to the next queues
    */
-  nextQueueMap?: Map<string, string>;
+  nextQueueNameMap?: Map<string, string>;
+  nextQueuePriorityDiffMap?: Map<string, number>;
   /**
    * Default attributes (of the flow) necessary to execute the job
    */

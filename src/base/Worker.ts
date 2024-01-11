@@ -228,17 +228,20 @@ export default class Worker<
 
     const { nextQueue } = result;
 
+    const nextQueueName =
+      nextQueue ||
+      this.queue.nextQueueName ||
+      this.queue.nextQueueNameMap.get(job.flowName);
+
+    const nextQueuePriorityDiff =
+      this.queue.nextQueuePriorityDiffMap.get(job.flowName) ?? 0;
+
     const propertiesToSave: AnyObject = result;
     delete propertiesToSave.nextQueue;
     propertiesToSave["completed-queue"] = this.queue.name;
 
     // save the result
     await hSetMore(this.nonBlockingRedis, jobKey, propertiesToSave);
-
-    const nextQueueName =
-      nextQueue ||
-      this.queue.nextQueueName ||
-      this.queue.nextQueueMap.get(job.flowName);
 
     // start a redis transaction
     const transaction = this.nonBlockingRedis.multi();
@@ -247,7 +250,7 @@ export default class Worker<
     if (nextQueueName) {
       const nextQueueKey = keyFormatter.waitingQueueName(
         nextQueueName,
-        job.priority
+        job.priority + nextQueuePriorityDiff
       );
       transaction.rPush(nextQueueKey, job.id);
     }
