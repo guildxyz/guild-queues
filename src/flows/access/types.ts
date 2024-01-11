@@ -73,7 +73,6 @@ export type AccessCheckChildParams = {
   guildId: number;
   roleId: number;
   requirementId: number;
-  priority: number;
 };
 
 /**
@@ -199,7 +198,6 @@ export type DataForRewardAuditLog = {
  */
 export type ManageRewardChildParams = {
   childName: string;
-  priority: number;
   platformGuildId: string;
   manageRewardAction: ManageRewardBase; // nested, because this way we only need to HGET one field
   dataForAuditLog: DataForRewardAuditLog;

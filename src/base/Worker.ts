@@ -190,6 +190,7 @@ export default class Worker<
       ...propertiesToLog,
       jobId,
       correlationId: attributes.correlationId,
+      priority,
     });
 
     // return job with id
@@ -209,6 +210,7 @@ export default class Worker<
       flowName: extractFlowNameFromJobId(job.id),
       workerId: this.id,
       jobId: job.id,
+      priority: job.priority,
     };
 
     const itemLockKey = keyFormatter.lock(this.queue.name, job.id);
@@ -239,6 +241,7 @@ export default class Worker<
     const propertiesToSave: AnyObject = result;
     delete propertiesToSave.nextQueue;
     propertiesToSave["completed-queue"] = this.queue.name;
+    propertiesToSave.priority = job.priority + nextQueuePriorityDiff;
 
     // save the result
     await hSetMore(this.nonBlockingRedis, jobKey, propertiesToSave);
@@ -284,6 +287,7 @@ export default class Worker<
         nextQueueLength,
         removedLockCount,
         processingQueueLength,
+        nextQueuePriorityDiff,
       });
       return true;
     }
