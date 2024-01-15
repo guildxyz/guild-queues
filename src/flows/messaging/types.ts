@@ -9,6 +9,7 @@ type Notification = {
   title: string;
   body: string;
   url?: string;
+  icon?: string;
 };
 
 export type MessagingLookupAttributes = "guildId";
