@@ -22,6 +22,11 @@ export default class Queue {
    */
   readonly nextQueueNameMap: Map<string, string>;
 
+  /**
+   * If the next queue is part of multiple flows, it probably has different job priorities for different flows
+   * This map maps the flow names to the PRIORITY DIFFERENCE which will be applied to the job when we put it in the next queue. (default value is 0, no difference)
+   * E.g. a key value pair ("access", 1) means if the current flow is the access flow, we add 1 to the job's priority right before putting it the next queue.
+   */
   readonly nextQueuePriorityDiffMap: Map<string, number>;
 
   /**

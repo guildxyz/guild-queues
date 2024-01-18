@@ -66,7 +66,7 @@ export const accessCheckQueue = new Queue({
     ["status-update", "bulk-access-logic"],
   ]),
   nextQueuePriorityDiffMap: new Map([
-    ["status-update", -1], // decrease priority by one
+    ["status-update", -1], // decrease priority by one (restore to previous priority)
   ]),
   maxRetries: 10, // this is for the parent queue only, not the child queues
   children: [
