@@ -9,10 +9,12 @@ export const manageRewardQueue = new Queue({
     "children:manage-reward:params",
     "children:manage-reward:jobs",
   ],
-  nextQueueMap: new Map([
+  priorities: 2,
+  nextQueueNameMap: new Map([
     ["access", "access-result"],
     ["status-update", "status-update-result"],
   ]),
+  nextQueuePriorityDiffMap: new Map([["status-update", -1]]),
   maxRetries: 10, // this is for the parent queue only, not the child queues
   children: [
     {
@@ -29,18 +31,22 @@ export const manageRewardQueue = new Queue({
     {
       queueName: "telegram",
       attributesToGet: manageRewardAttributeToGet,
+      priorities: 2,
     },
     {
       queueName: "github",
       attributesToGet: manageRewardAttributeToGet,
+      priorities: 2,
     },
     {
       queueName: "google",
       attributesToGet: manageRewardAttributeToGet,
+      priorities: 2,
     },
     {
       queueName: "nft",
       attributesToGet: manageRewardAttributeToGet,
+      priorities: 2,
     },
   ],
 });
@@ -54,9 +60,13 @@ export const accessCheckQueue = new Queue({
     "correlationId",
     "requirementIds",
   ],
-  nextQueueMap: new Map([
+  priorities: 2,
+  nextQueueNameMap: new Map([
     ["access", "access-logic"],
     ["status-update", "bulk-access-logic"],
+  ]),
+  nextQueuePriorityDiffMap: new Map([
+    ["status-update", -1], // decrease priority by one (restore to previous priority)
   ]),
   maxRetries: 10, // this is for the parent queue only, not the child queues
   children: [
