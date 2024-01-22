@@ -68,7 +68,7 @@ export type AccessPreparationParams = AccessFlowParams & {
  * Basic properties of requirementCheck
  */
 export type AccessCheckChildParams = {
-  childName: "requirement" | "covalent";
+  childName: "requirement" | "covalent" | "galxe";
   userId: number;
   guildId: number;
   roleId: number;
@@ -262,7 +262,11 @@ export type AccessPreparationJob = {
  */
 export type AccessCheckJob = {
   queueName: "access-check";
-  children: [{ queueName: "requirement" }, { queueName: "covalent" }];
+  children: [
+    { queueName: "requirement" },
+    { queueName: "covalent" },
+    { queueName: "galxe" }
+  ];
   params: AccessCheckParams;
   result: AccessCheckResult;
 };
