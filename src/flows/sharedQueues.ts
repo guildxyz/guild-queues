@@ -85,9 +85,9 @@ export const accessCheckQueue = new Queue({
       attributesToGet: ["userId", "guildId", "roleId", "requirementId"],
       priorities: 2,
       delayable: true,
-      maxRetries: 1,
+      // maxRetries: 1, // temp disabled 2024.01.31.
       limiter: {
-        reservoir: 45, // 50 in prod, 4 otherwise, we use 30 here just to be safe because some checks may require more calls while others require none
+        reservoir: 50, // 50 in prod, 4 otherwise, we usually use a bit less here just to be safe because some checks may require more calls while others require none
         intervalMs: 1000,
       },
     },
