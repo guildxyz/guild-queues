@@ -19,6 +19,7 @@ export type MessagingJobOptions = {
   priority: number;
   messageId: number;
   guildId: number;
+  sender: number;
   notification: Notification | string;
   recipients: string[];
   readyTimestamp?: Date;

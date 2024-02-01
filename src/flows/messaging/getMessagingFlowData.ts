@@ -13,6 +13,7 @@ const getMessagingProps = (): FlowProps => {
         "protocol",
         "messageId",
         "guildId",
+        "sender",
         "notification",
         "recipients",
         "readyTimestamp",
