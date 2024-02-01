@@ -25,7 +25,7 @@ export const manageRewardQueue = new Queue({
       limiter: {
         groupJobKey: "platformGuildId",
         intervalMs: 5 * 1000,
-        reservoir: 7,
+        reservoir: 5,
       },
     },
     {
