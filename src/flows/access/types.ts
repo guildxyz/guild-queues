@@ -104,7 +104,7 @@ export type RequirementError = {
   requirementId: number;
   msg: string;
   errorType: string;
-  subType?: string;
+  errorSubType?: string;
 };
 
 /**
