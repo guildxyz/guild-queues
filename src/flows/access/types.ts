@@ -351,11 +351,11 @@ export type AccessJobContent = CreateAccessJobOptions &
   Omit<PrepareManageRewardResult, "nextQueue"> &
   Omit<ManageRewardResult, "nextQueue"> &
   Omit<AccessResultResult, "nextQueue"> & {
-    "children:access-check:jobs": (AccessCheckParams &
+    "children:access-check:results": (AccessCheckParams &
       AccessCheckResult &
       BaseJobParams &
       ManagedJobFields)[];
-    "children:manage-reward:jobs": (ManageRewardParams &
+    "children:manage-reward:results": (ManageRewardParams &
       ManageRewardResult &
       BaseJobParams &
       ManagedJobFields)[];

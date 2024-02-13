@@ -188,14 +188,14 @@ export type StatusUpdateJobContent = CreateStatusUpdateJobOptions &
   Omit<BulkPrepareManageRewardResult, "nextQueue"> &
   Omit<ManageRewardResult, "nextQueue"> &
   Omit<StatusUpdateResultResult, "nextQueue"> & {
-    "children:access-check:jobs": (AccessCheckParams &
+    "children:access-check:results": (AccessCheckParams &
       AccessCheckResult &
       BaseJobParams &
       ManagedJobFields)[];
-    "children:bulk-access-check:jobs": (BulkAccessCheckResult &
+    "children:bulk-access-check:results": (BulkAccessCheckResult &
       BaseJobParams &
       ManagedJobFields)[];
-    "children:manage-reward:jobs": (ManageRewardParams &
+    "children:manage-reward:results": (ManageRewardParams &
       ManageRewardResult &
       BaseJobParams &
       ManagedJobFields)[];

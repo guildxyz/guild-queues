@@ -554,7 +554,7 @@ export default class Worker<
   /**
    * Start the job execution
    */
-  public start = async () => {
+  public start = () => {
     const propertiesToLog = {
       ...DEFAULT_LOG_META,
       queueName: this.queue.name,

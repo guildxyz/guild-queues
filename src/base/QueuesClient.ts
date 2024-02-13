@@ -189,7 +189,7 @@ export default class QueuesClient {
    * @param resolveChildren whether include child jobs (not just their keys)
    * @returns jobs
    */
-  private getJobs = async <FlowName extends FlowNames>(
+  public getJobs = async <FlowName extends FlowNames>(
     jobIds: string[],
     resolveChildren: boolean,
     keysToGet: (keyof FlowTypes[FlowName]["content"])[] = undefined

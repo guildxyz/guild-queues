@@ -5,6 +5,7 @@ import {
   generateJobId,
   keyFormatter,
   objectToStringEntries,
+  parseObject,
 } from "../utils";
 import Worker from "./Worker";
 import {
@@ -115,14 +116,14 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
     // periodical checking
     while (true) {
       // get the child job's done field
-      const transaction = this.nonBlockingRedis.multi();
+      const checkIfDoneTransaction = this.nonBlockingRedis.multi();
       jobs.forEach((j) => {
-        transaction.hGet(j, DONE_FIELD);
+        checkIfDoneTransaction.hGet(j, DONE_FIELD);
       });
-      transaction.exists(jobKey);
-      const results = await transaction.exec();
+      checkIfDoneTransaction.exists(jobKey);
+      const checkIfDoneResults = await checkIfDoneTransaction.exec();
 
-      const existsResult = results.pop();
+      const existsResult = checkIfDoneResults.pop();
       if (existsResult === 0) {
         this.logger.info(
           "ParentWorker terminates, job key does not exists",
@@ -132,7 +133,22 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
       }
 
       // check if all of them are done
-      if (results.every((r) => r === "true")) {
+      if (checkIfDoneResults.every((r) => r === "true")) {
+        const getChildJobsTransaction = this.nonBlockingRedis.multi();
+        jobs.forEach((j) => {
+          getChildJobsTransaction.hGetAll(j);
+        });
+        const rawChildJobs = await getChildJobsTransaction.exec();
+        const childJobs = rawChildJobs.map((c) =>
+          parseObject(c as any, this.logger)
+        );
+        const resultsKey = keyFormatter.childrenResults(parentQueueName);
+        this.nonBlockingRedis.hSet(
+          jobKey,
+          resultsKey,
+          JSON.stringify(childJobs)
+        );
+
         break;
       }
 
