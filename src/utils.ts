@@ -113,6 +113,8 @@ export const keyFormatter = {
   childrenParams: (parentQueueName: string) =>
     `children:${parentQueueName}:params`,
   childrenJobs: (parentQueueName: string) => `children:${parentQueueName}:jobs`,
+  childrenResults: (parentQueueName: string) =>
+    `children:${parentQueueName}:results`,
   childWaitingQueueName: (
     childGroup: string,
     childName: string,
