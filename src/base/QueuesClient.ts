@@ -3,7 +3,6 @@ import {
   ArrayElement,
   ICorrelator,
   ILogger,
-  IStartable,
   RedisClient,
   WorkerFunction,
 } from "./types";
@@ -24,7 +23,7 @@ export default class QueuesClient {
   /**
    * Worker instances
    */
-  private workers: IStartable[] = [];
+  public readonly workers: Worker<any, any>[] = [];
 
   /**
    * Options to create redis connections
