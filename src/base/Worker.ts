@@ -8,7 +8,6 @@ import {
   ILogger,
   RedisClient,
   WorkerOptions,
-  IStartable,
   BaseJobResult,
   AnyObject,
   ICorrelator,
@@ -45,8 +44,7 @@ import {
 export default class Worker<
   Params extends BaseJobParams,
   Result extends BaseJobResult
-> implements IStartable
-{
+> {
   /**
    * Uuid of the worker
    */

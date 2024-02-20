@@ -30,16 +30,6 @@ export interface ILogger {
 }
 
 /**
- * Has connect, disconnect, start and stop method
- */
-export interface IStartable {
-  connect(): void;
-  disconnect(): void;
-  start(): void;
-  stop(): void;
-}
-
-/**
  * Can bind and provide correlation id
  */
 export type ICorrelator = {
