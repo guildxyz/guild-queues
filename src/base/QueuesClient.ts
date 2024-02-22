@@ -61,14 +61,14 @@ export default class QueuesClient {
   /**
    * Connect to redis client
    */
-  private connect = async () => {
+  public connect = async () => {
     await this.redis.connect();
   };
 
   /**
    * Disconnect from redis client
    */
-  private disconnect = async () => {
+  public disconnect = async () => {
     await this.redis.disconnect();
   };
 
