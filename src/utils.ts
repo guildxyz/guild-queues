@@ -215,8 +215,8 @@ export const handleRetries = async (
 };
 
 /**
- * Keys need to expiry to keep the redis clean. Some flows are usually faster,
- * so it's okay to expiry its keys after a shorter amount of time.
+ * Keys need to expire to keep the redis clean. Some flows are usually faster,
+ * so it's okay to expire its keys after a shorter amount of time.
  */
 export const getKeyExpirySec = (flowName: string) => {
   if (flowName.startsWith("access")) {
