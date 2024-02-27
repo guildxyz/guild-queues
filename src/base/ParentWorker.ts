@@ -99,7 +99,10 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
 
         // create child job state
         transaction.hSet(childJobKey, objectToStringEntries(childJob));
-        transaction.expire(childJobKey, getKeyExpirySec(job.flowName));
+        transaction.expire(
+          childJobKey,
+          getKeyExpirySec(childJob.flowName, childJob.priority)
+        );
         // put it to the child queue
         transaction.rPush(childQueueKey, childJobId);
 

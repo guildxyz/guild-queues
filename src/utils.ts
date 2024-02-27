@@ -218,8 +218,14 @@ export const handleRetries = async (
  * Keys need to expire to keep the redis clean. Some flows are usually faster,
  * so it's okay to expire its keys after a shorter amount of time.
  */
-export const getKeyExpirySec = (flowName: string) => {
-  if (flowName.startsWith("access")) {
+export const getKeyExpirySec = (flowName: string, priority: number) => {
+  // the child job's flowName is composed of the parent queue name + the child group (e.g. access-check:requirement), and not the actual flow, so we have to do it this way at the moment
+  if (
+    flowName === "access" ||
+    (priority === 1 &&
+      (flowName.startsWith("access-check") ||
+        flowName.startsWith("manage-reward")))
+  ) {
     return ACCESS_FLOW_KEY_EXPIRY_SEC;
   }
 

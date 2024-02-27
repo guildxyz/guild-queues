@@ -103,7 +103,7 @@ export default class QueuesClient {
     // generate id for the job
     const jobId = generateJobId(flowName);
     const jobKey = keyFormatter.job(jobId);
-    const keyExpirySec = getKeyExpirySec(flowName);
+    const keyExpirySec = getKeyExpirySec(flowName, options.priority);
 
     const transaction = this.redis
       .multi()

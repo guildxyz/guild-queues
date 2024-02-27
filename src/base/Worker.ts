@@ -354,7 +354,7 @@ export default class Worker<
     const [calls, _] = await this.nonBlockingRedis
       .multi()
       .incr(delayCallsKey)
-      .expire(delayCallsKey, getKeyExpirySec(job.flowName))
+      .expire(delayCallsKey, getKeyExpirySec(job.flowName, job.priority))
       .exec();
 
     if (calls > this.queue.limiter.reservoir) {
