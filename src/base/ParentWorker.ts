@@ -3,6 +3,7 @@
 import {
   delay,
   generateJobId,
+  getKeyExpirySec,
   keyFormatter,
   objectToStringEntries,
   parseObject,
@@ -16,7 +17,6 @@ import {
   WorkerFunction,
 } from "./types";
 import {
-  DEFAULT_KEY_EXPIRY_SEC,
   DEFAULT_LOG_META,
   DEFAULT_PARENT_CHECK_INTERVAL_MS,
   DONE_FIELD,
@@ -99,7 +99,10 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
 
         // create child job state
         transaction.hSet(childJobKey, objectToStringEntries(childJob));
-        transaction.expire(childJobKey, DEFAULT_KEY_EXPIRY_SEC);
+        transaction.expire(
+          childJobKey,
+          getKeyExpirySec(childJob.flowName, childJob.priority)
+        );
         // put it to the child queue
         transaction.rPush(childQueueKey, childJobId);
 

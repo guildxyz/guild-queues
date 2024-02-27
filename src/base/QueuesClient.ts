@@ -10,12 +10,12 @@ import Worker from "./Worker";
 import { FlowNames, FlowTypes } from "../flows/types";
 import {
   generateJobId,
+  getKeyExpirySec,
   getLookupKeys,
   keyFormatter,
   objectToStringEntries,
   parseObject,
 } from "../utils";
-import { DEFAULT_KEY_EXPIRY_SEC } from "../static";
 import flows from "../flows/flows";
 import ParentWorker from "./ParentWorker";
 
@@ -103,6 +103,7 @@ export default class QueuesClient {
     // generate id for the job
     const jobId = generateJobId(flowName);
     const jobKey = keyFormatter.job(jobId);
+    const keyExpirySec = getKeyExpirySec(flowName, options.priority);
 
     const transaction = this.redis
       .multi()
@@ -114,7 +115,7 @@ export default class QueuesClient {
           flowName,
         })
       )
-      .expire(jobKey, DEFAULT_KEY_EXPIRY_SEC);
+      .expire(jobKey, keyExpirySec);
 
     // add lookup keys
     const lookupKeys = getLookupKeys(
@@ -124,7 +125,7 @@ export default class QueuesClient {
     );
     lookupKeys.forEach((lookupKey) => {
       transaction.rPush(lookupKey, jobId);
-      transaction.expire(lookupKey, DEFAULT_KEY_EXPIRY_SEC);
+      transaction.expire(lookupKey, keyExpirySec);
     });
 
     // put to the first queue

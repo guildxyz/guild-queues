@@ -21,6 +21,7 @@ import {
   bindIdToCorrelator,
   delay,
   handleRetries,
+  getKeyExpirySec,
 } from "../utils";
 import {
   DEFAULT_LIMITER_GROUP_NAME,
@@ -350,7 +351,11 @@ export default class Worker<
       currentTimeWindow
     );
 
-    const calls = await this.nonBlockingRedis.incr(delayCallsKey);
+    const [calls, _] = await this.nonBlockingRedis
+      .multi()
+      .incr(delayCallsKey)
+      .expire(delayCallsKey, getKeyExpirySec(job.flowName, job.priority))
+      .exec();
 
     if (calls > this.queue.limiter.reservoir) {
       const delayEnqueuedKey = keyFormatter.delayEnqueued(

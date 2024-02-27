@@ -12,6 +12,8 @@ export const DEFAULT_WAIT_TIMEOUT_SEC = 3;
 export const DEFAULT_PARENT_CHECK_INTERVAL_MS = 1000;
 // almost all of the keys should expire one day to prevent filling the redis with garbage
 export const DEFAULT_KEY_EXPIRY_SEC = 60 * 60 * 24;
+// the access flow keys need to expire faster because they can easily fill the redis
+export const ACCESS_FLOW_KEY_EXPIRY_SEC = 60 * 60 * 3;
 // additional seconds for the lock key expiration to prevent marking the job failed immediately before finishing it
 export const EXTRA_LOCK_SEC = 2;
 // this metadata should be included in all logs
