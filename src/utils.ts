@@ -3,7 +3,9 @@ import Queue from "./base/Queue";
 import { AnyObject, ICorrelator, ILogger, RedisClient } from "./base/types";
 import { FlowNames } from "./flows/types";
 import {
+  ACCESS_FLOW_KEY_EXPIRY_SEC,
   COUNTER_KEY_PREFIX,
+  DEFAULT_KEY_EXPIRY_SEC,
   DEFAULT_LOG_META,
   JOB_KEY_PREFIX,
   LOCK_KEY_PREFIX,
@@ -210,4 +212,16 @@ export const handleRetries = async (
   }
 
   return { retried: false };
+};
+
+/**
+ * Keys need to expiry to keep the redis clean. Some flows are usually faster,
+ * so it's okay to expiry its keys after a shorter amount of time.
+ */
+export const getKeyExpirySec = (flowName: string) => {
+  if (flowName.startsWith("access")) {
+    return ACCESS_FLOW_KEY_EXPIRY_SEC;
+  }
+
+  return DEFAULT_KEY_EXPIRY_SEC;
 };
