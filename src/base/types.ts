@@ -3,6 +3,7 @@ import { RedisClientOptions, createClient } from "redis";
 import Queue from "./Queue";
 import { FlowNames } from "../flows/types";
 import {
+  CREATED_AT_FIELD,
   DELAY_REASON_FIELD,
   DELAY_TIMESTAMP_FIELD,
   FAILED_ERROR_MSG_FIELD,
@@ -115,8 +116,8 @@ export type BaseJobResult = {
 };
 
 export type ManagedJobFields = {
-  createdAt: string;
   "completed-queue"?: string;
+  [CREATED_AT_FIELD]: string;
   [FAILED_FIELD]?: boolean;
   [FAILED_ERROR_MSG_FIELD]?: string;
   [FAILED_QUEUE_FIELD]?: string;

@@ -18,6 +18,7 @@ import {
 } from "../utils";
 import flows from "../flows/flows";
 import ParentWorker from "./ParentWorker";
+import { CREATED_AT_FIELD } from "../static";
 
 export default class QueuesClient {
   /**
@@ -113,7 +114,7 @@ export default class QueuesClient {
         objectToStringEntries({
           ...options,
           flowName,
-          createdAt: new Date(),
+          [CREATED_AT_FIELD]: Date.now(),
         })
       )
       .expire(jobKey, keyExpirySec);
