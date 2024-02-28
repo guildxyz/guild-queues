@@ -115,6 +115,7 @@ export type BaseJobResult = {
 };
 
 export type ManagedJobFields = {
+  createdAt: string;
   "completed-queue"?: string;
   [FAILED_FIELD]?: boolean;
   [FAILED_ERROR_MSG_FIELD]?: string;

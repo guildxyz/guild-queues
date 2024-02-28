@@ -113,6 +113,7 @@ export default class QueuesClient {
         objectToStringEntries({
           ...options,
           flowName,
+          createdAt: new Date(),
         })
       )
       .expire(jobKey, keyExpirySec);
