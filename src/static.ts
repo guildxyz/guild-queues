@@ -28,6 +28,8 @@ export const FAILED_FIELD = "failed";
 export const FAILED_QUEUE_FIELD = "failedQueue";
 // the message of the encountered error
 export const FAILED_ERROR_MSG_FIELD = "failedErrorMsg";
+// unix timestamp when the flow's job was created
+export const CREATED_AT_FIELD = "createdAtTimestamp";
 
 // whether the job is currently delayed
 export const IS_DELAY_FIELD = "delay";
