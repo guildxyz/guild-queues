@@ -341,6 +341,16 @@ export type AccessFlowJob =
 
 export type AccessLookupAttributes = "userId" | "roleIds" | "guildId";
 
+type AccessCheckChild = AccessCheckParams &
+  AccessCheckResult &
+  BaseJobParams &
+  ManagedJobFields;
+
+type ManageRewardChild = ManageRewardParams &
+  ManageRewardResult &
+  BaseJobParams &
+  ManagedJobFields;
+
 export type AccessJobContent = CreateAccessJobOptions &
   BaseJobParams &
   ManagedJobFields &
@@ -351,12 +361,12 @@ export type AccessJobContent = CreateAccessJobOptions &
   Omit<PrepareManageRewardResult, "nextQueue"> &
   Omit<ManageRewardResult, "nextQueue"> &
   Omit<AccessResultResult, "nextQueue"> & {
-    "children:access-check:results": (AccessCheckParams &
-      AccessCheckResult &
-      BaseJobParams &
-      ManagedJobFields)[];
-    "children:manage-reward:results": (ManageRewardParams &
-      ManageRewardResult &
-      BaseJobParams &
-      ManagedJobFields)[];
+    // the ...:jobs contain the live child data which is harder to fetch
+    // it's size and content can vary during the process, used during poll
+    "children:access-check:jobs": AccessCheckChild[];
+    // the ...:results contain the final child data which is easier to fetch
+    // it's final, but only available after the step is finished
+    "children:access-check:results": AccessCheckChild[];
+    "children:manage-reward:jobs": ManageRewardChild[];
+    "children:manage-reward:results": ManageRewardChild[];
   };
