@@ -199,13 +199,31 @@ export default class QueuesClient {
     const transaction = this.redis.multi();
     jobIds.forEach((jobId) => {
       const jobKey = keyFormatter.job(jobId);
+      // we need to check if the key actually exists in redis,
+      // because it also returns null when the key does not exists
+      transaction.exists(jobKey);
       if (keysToGet) {
         transaction.hmGet(jobKey, keysToGet as string[]);
       } else {
         transaction.hGetAll(jobKey);
       }
     });
-    const rawJobs = await transaction.exec();
+    const transactionResults = await transaction.exec();
+
+    let jobExists: boolean;
+    const rawJobs: Record<string, string>[] = [];
+    transactionResults.forEach((res, index) => {
+      if (index % 2 === 0) {
+        jobExists = res === 1; // EXISTS returns 1 if the key exists
+      } else if (jobExists) {
+        rawJobs.push(res as any as Record<string, string>);
+      }
+    });
+
+    if (rawJobs.length === 0) {
+      return [];
+    }
+
     let jobs: Record<string, any>[] = rawJobs.map((rawJob, index) => {
       if (!keysToGet) {
         return {
