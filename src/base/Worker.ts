@@ -1,6 +1,7 @@
 /* eslint-disable no-await-in-loop */
 import { createClient } from "redis";
 import { uuidv7 } from "uuidv7";
+import { Promise as BluebirdPromise, Promise, TimeoutError } from "bluebird";
 import Queue from "./Queue";
 import {
   BaseJobParams,
@@ -38,6 +39,8 @@ import {
   FAILED_QUEUE_FIELD,
   IS_DELAY_FIELD,
 } from "../static";
+
+BluebirdPromise.config({ cancellation: true });
 
 /**
  * Defines a worker, the framework for job execution
@@ -387,8 +390,38 @@ export default class Worker<
    * @returns result of the job
    */
   private executeWithDeadline = async (job: Params): Promise<Result> => {
-    let timeout: ReturnType<typeof setTimeout>;
-    const timeoutPromise = new Promise<any>((_, reject) => {
+    // let timeout: ReturnType<typeof setTimeout>;
+    // const timeoutPromise = new Promise<any>((_, reject) => {
+    //   timeout = setTimeout(() => {
+    //     this.logger.warn("Execution timeout exceeded", {
+    //       ...DEFAULT_LOG_META,
+    //       queueName: this.queue.name,
+    //       flowName: job.flowName,
+    //       workerId: this.id,
+    //       lockTimeSec: this.lockTimeSec,
+    //       priority: job.priority,
+    //     });
+    //     reject(
+    //       new Error(`Execution timeout of ${this.lockTimeSec} seconds exceeded`)
+    //     );
+    //   }, this.lockTimeSec * 1000);
+    // });
+    //
+    // const result: Result = await Promise.race([
+    //   timeoutPromise,
+    //   this.workerFunction(job, timeout),
+    // ]);
+    //
+    // if (timeout) {
+    //   clearTimeout(timeout);
+    // }
+    //
+    // return result;
+
+    const wrapperPromise = new Promise<Result>((resolve, reject) => {
+      let timeout: ReturnType<typeof setTimeout>;
+      const work = this.workerFunction(job, timeout);
+
       timeout = setTimeout(() => {
         this.logger.warn("Execution timeout exceeded", {
           ...DEFAULT_LOG_META,
@@ -398,22 +431,55 @@ export default class Worker<
           lockTimeSec: this.lockTimeSec,
           priority: job.priority,
         });
+
+        work.cancel();
+        console.log("cancel");
+        console.log(new Date());
+
         reject(
           new Error(`Execution timeout of ${this.lockTimeSec} seconds exceeded`)
         );
       }, this.lockTimeSec * 1000);
+
+      work
+        .then((result) => {
+          console.log("then");
+          console.log(new Date());
+          resolve(result);
+        })
+        .catch((error) => {
+          console.log("catch");
+          console.log(new Date());
+          reject(error);
+        })
+        .finally(() => {
+          clearTimeout(timeout);
+          console.log("timeout cleared");
+          console.log(new Date());
+        });
     });
 
-    const result: Result = await Promise.race([
-      timeoutPromise,
-      this.workerFunction(job, timeout),
-    ]);
+    return wrapperPromise;
 
-    if (timeout) {
-      clearTimeout(timeout);
-    }
-
-    return result;
+    // .timeout(
+    //   this.lockTimeSec * 1000,
+    //   new TimeoutError(
+    //     `Execution timeout of ${this.lockTimeSec} seconds exceeded`
+    //   )
+    // )
+    // .catch((error) => {
+    //   if (error instanceof TimeoutError) {
+    //     this.logger.warn("Execution timeout exceeded", {
+    //       ...DEFAULT_LOG_META,
+    //       queueName: this.queue.name,
+    //       flowName: job.flowName,
+    //       workerId: this.id,
+    //       lockTimeSec: this.lockTimeSec,
+    //       priority: job.priority,
+    //     });
+    //   }
+    //   throw error;
+    // });
   };
 
   private leaseWrapper = async () => {

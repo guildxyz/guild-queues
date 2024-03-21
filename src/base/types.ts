@@ -1,4 +1,5 @@
 // eslint-disable-next-line max-classes-per-file
+import Bluebird from "bluebird";
 import { RedisClientOptions, createClient } from "redis";
 import Queue from "./Queue";
 import { FlowNames } from "../flows/types";
@@ -152,7 +153,7 @@ export type BaseJob = {
 export type WorkerFunction<
   Params extends BaseJobParams,
   Result extends BaseJobResult
-> = (job: Params, timeout?: ReturnType<typeof setTimeout>) => Promise<Result>;
+> = (job: Params, timeout?: ReturnType<typeof setTimeout>) => Bluebird<Result>;
 
 /* ========== Options ========== */
 
