@@ -386,7 +386,9 @@ export default class Worker<
    * @param job Job to execute
    * @returns result of the job
    */
-  private executeWithDeadline = async (job: Params): Promise<Result> => {
+  private executeWithDeadline = async (
+    job: Params
+  ): Promise<{ result: Result; error: any }> => {
     let timeout: ReturnType<typeof setTimeout>;
     const timeoutPromise = new Promise<any>((_, reject) => {
       timeout = setTimeout(() => {
@@ -404,16 +406,22 @@ export default class Worker<
       }, this.lockTimeSec * 1000);
     });
 
-    const result: Result = await Promise.race([
-      timeoutPromise,
-      this.workerFunction(job, timeout),
-    ]);
-
-    if (timeout) {
+    // this isolates error boundaries between "consumer-error" and "queue-lib-error"
+    let result: Result;
+    let error: any;
+    try {
+      result = await Promise.race([
+        timeoutPromise,
+        this.workerFunction(job, timeout),
+      ]);
+    } catch (err) {
+      error = err;
+    } finally {
+      await delay(100); // making sure timeout is declared inside the timeoutPromise
       clearTimeout(timeout);
     }
 
-    return result;
+    return { result, error };
   };
 
   private leaseWrapper = async () => {
@@ -478,16 +486,6 @@ export default class Worker<
     return false;
   };
 
-  private executeWrapper = async (job: Params) => {
-    // this isolates error boundaries between "consumer-error" and "queue-lib-error"
-    try {
-      const result = await this.executeWithDeadline(job);
-      return { result };
-    } catch (error: any) {
-      return { error };
-    }
-  };
-
   /**
    * Loop for executing jobs until the Worker is running
    */
@@ -511,7 +509,7 @@ export default class Worker<
               }
 
               const start = performance.now();
-              const { result, error } = await this.executeWrapper(job);
+              const { result, error } = await this.executeWithDeadline(job);
               const time = performance.now() - start;
               this.logger.info("Job executed", {
                 ...DEFAULT_LOG_META,

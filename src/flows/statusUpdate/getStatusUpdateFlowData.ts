@@ -37,6 +37,7 @@ const getStatusUpdateFlowProps = (): FlowProps => {
         "children:access-check:jobs",
         "children:bulk-access-check:jobs",
         "updateMemberships",
+        "existingAccesses",
       ],
     },
     {
