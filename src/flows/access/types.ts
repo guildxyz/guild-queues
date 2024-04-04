@@ -63,6 +63,7 @@ export type AccessFlowResult = {
  */
 export type AccessPreparationParams = AccessFlowParams & {
   recheckAccess: boolean;
+  saveClaimData: boolean;
 };
 
 /**
@@ -126,7 +127,6 @@ export type AccessCheckResult = AccessFlowResult & {
 export type AccessLogicParams = AccessFlowParams & {
   "children:access-check:jobs": string[];
   updateMemberships: boolean;
-  saveClaimData: boolean;
 };
 
 export type RoleAccess = {
