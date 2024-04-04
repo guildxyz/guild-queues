@@ -32,6 +32,7 @@ const getAccessFlowProps = (): FlowProps => {
         "roleAccesses",
         "manageRewards",
         "shareSocials",
+        "saveClaimData",
         "rootAuditLogId",
       ],
     },

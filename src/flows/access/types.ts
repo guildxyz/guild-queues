@@ -24,6 +24,7 @@ export type CreateAccessJobOptions = {
   onlyForThisPlatform?: string;
   correlationId: string;
   shareSocials?: boolean;
+  saveClaimData?: boolean;
   rootAuditLogId?: number;
 };
 
@@ -125,6 +126,7 @@ export type AccessCheckResult = AccessFlowResult & {
 export type AccessLogicParams = AccessFlowParams & {
   "children:access-check:jobs": string[];
   updateMemberships: boolean;
+  saveClaimData: boolean;
 };
 
 export type RoleAccess = {
