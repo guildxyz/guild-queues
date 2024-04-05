@@ -134,6 +134,7 @@ export type RoleAccess = {
 
 export type RequirementAccess = {
   requirementId: number;
+  roleId: number;
   userId: number;
   access: boolean;
   amount?: number;
