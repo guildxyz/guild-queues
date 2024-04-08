@@ -50,11 +50,19 @@ export type StatusUpdatePreparationResult = StatusUpdateFlowResult &
         nextQueue: "bulk-access-check";
         "children:bulk-access-check:params": BulkAccessCheckChildParams[];
         "children:access-check:params": AccessCheckChildParams[];
+        existingAccesses: {
+          requirementId: number;
+          users: {
+            userId: number;
+            access: boolean;
+          }[];
+        }[];
       }
     | {
         nextQueue: "bulk-update-membership";
         "children:bulk-access-check:params"?: never;
         "children:access-check:params"?: never;
+        existingAccesses?: never;
       }
   );
 
@@ -76,6 +84,7 @@ export type BulkAccessCheckResult = StatusUpdateFlowResult & {
 export type BulkAccessLogicParams = StatusUpdateFlowParams & {
   "children:access-check:jobs": string[];
   "children:bulk-access-check:jobs": string[];
+  existingAccesses: StatusUpdatePreparationResult["existingAccesses"];
   updateMemberships: boolean;
 };
 
