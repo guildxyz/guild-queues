@@ -153,7 +153,7 @@ export default class QueuesClient {
     const [job] = await this.getJobs([jobId], false);
 
     if (!job) {
-      throw new Error("Job to delete does not exist.");
+      return [];
     }
 
     const transaction = this.redis.multi();
