@@ -1,5 +1,5 @@
 node_modules/
-src/
+/src/
 tests/
 docs/
 img/
@@ -9,3 +9,4 @@ git-ignored/
 tsconfig.json
 .eslintrc.json
 README.md
+jest.config.js
