@@ -1,6 +1,7 @@
 /* eslint-disable no-await-in-loop */
 import { createClient } from "redis";
 import { uuidv7 } from "uuidv7";
+import { context } from "@guildxyz/context";
 import Queue from "./Queue";
 import {
   BaseJobParams,
@@ -498,49 +499,52 @@ export default class Worker<
         if (!job) break;
 
         await new Promise((resolve) => {
-          bindIdToCorrelator(this.correlator, job.correlationId, async () => {
-            // if there's a job execute it
-            // else check if worker is still running and retry
-            if (job) {
-              const isDelayed = await this.delayWrapper(job);
-              if (isDelayed) {
-                resolve(0);
-                return;
-              }
+          context.with(
+            { correlationId: job.correlationId, guildId: job.guildId },
+            async () => {
+              // if there's a job execute it
+              // else check if worker is still running and retry
+              if (job) {
+                const isDelayed = await this.delayWrapper(job);
+                if (isDelayed) {
+                  resolve(0);
+                  return;
+                }
 
-              const start = performance.now();
-              const { result, error } = await this.executeWithDeadline(job);
-              const time = performance.now() - start;
-              this.logger.info("Job executed", {
-                ...DEFAULT_LOG_META,
-                ...propertiesToLog,
-                time,
-                job,
-                result,
-                error,
-                failed: !result,
-              });
+                const start = performance.now();
+                const { result, error } = await this.executeWithDeadline(job);
+                const time = performance.now() - start;
+                this.logger.info("Job executed", {
+                  ...DEFAULT_LOG_META,
+                  ...propertiesToLog,
+                  time,
+                  job,
+                  result,
+                  error,
+                  failed: !result,
+                });
 
-              if (error) {
-                if (error instanceof DelayError) {
-                  await this.delayJob(
-                    job.id,
-                    job.priority,
-                    error.message,
-                    error.readyTimestamp
-                  );
-                } else {
-                  await this.handleWorkerFunctionError(job, error);
+                if (error) {
+                  if (error instanceof DelayError) {
+                    await this.delayJob(
+                      job.id,
+                      job.priority,
+                      error.message,
+                      error.readyTimestamp
+                    );
+                  } else {
+                    await this.handleWorkerFunctionError(job, error);
+                  }
+                }
+
+                if (result) {
+                  await this.complete(job, result);
                 }
               }
 
-              if (result) {
-                await this.complete(job, result);
-              }
+              resolve(0);
             }
-
-            resolve(0);
-          });
+          );
         });
       } catch (error) {
         this.logger.error("Event loop uncaught error", {

@@ -60,7 +60,7 @@ const testDelayJobIfLimited = async (amount: number, groupCount: number) => {
           id: `${i}`,
           type: `${i % groupCount}`,
         } as any,
-        PRIORITY
+        PRIORITY as any
       );
     })
   );

@@ -13,6 +13,7 @@
     "clean": "rm -rf ./node_modules ./build"
   },
   "dependencies": {
+    "@guildxyz/context": "git://github.com/guildxyz/guild-context.git#d5de35f",
     "correlation-id": "^5.0.3",
     "redis": "^4.6.6",
     "uuidv7": "^0.6.3"
