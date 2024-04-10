@@ -24,6 +24,7 @@ export type CreateAccessJobOptions = {
   onlyForThisPlatform?: string;
   correlationId: string;
   shareSocials?: boolean;
+  saveClaimData?: boolean;
   rootAuditLogId?: number;
 };
 
@@ -62,6 +63,7 @@ export type AccessFlowResult = {
  */
 export type AccessPreparationParams = AccessFlowParams & {
   recheckAccess: boolean;
+  saveClaimData: boolean;
 };
 
 /**
@@ -132,11 +134,22 @@ export type RoleAccess = {
   access: boolean;
 };
 
+export type RequirementAccess = {
+  requirementId: number;
+  roleId: number;
+  userId: number;
+  access: boolean;
+  amount?: number;
+  requirementError?: RequirementError;
+  userLevelErrors?: RequirementError[];
+};
+
 /**
  * Result of the access-logic queue
  */
 export type AccessLogicResult = AccessFlowResult & {
   roleAccesses: RoleAccess[];
+  requirementAccesses: RequirementAccess[];
   nextQueue: "update-membership" | "access-result";
 };
 
