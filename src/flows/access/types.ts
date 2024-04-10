@@ -24,6 +24,7 @@ export type CreateAccessJobOptions = {
   onlyForThisPlatform?: string;
   correlationId: string;
   shareSocials?: boolean;
+  saveClaimData?: boolean;
   rootAuditLogId?: number;
 };
 
@@ -62,6 +63,7 @@ export type AccessFlowResult = {
  */
 export type AccessPreparationParams = AccessFlowParams & {
   recheckAccess: boolean;
+  saveClaimData: boolean;
 };
 
 /**
