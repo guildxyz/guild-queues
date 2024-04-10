@@ -10,11 +10,8 @@ const getSnapshotProps = (): FlowProps => {
     [
       {
         queueName: "take-points-snapshot",
-        attributesToGet: [
-          // 2) ide ugyan az kell mint ami PointsSnapshotJobOptions-ben van
-          "guildId",
-          "doStatusUpddate",
-        ],
+        attributesToGet: ["guildId", "guildPlatformId", "snapshotId"],
+        maxRetries: 10,
       },
     ];
 

@@ -4,20 +4,19 @@ import {
   ManagedJobFields,
 } from "../../base/types";
 
-// Message => snpshost mindent
-
 export type PointsSnapshotLookupAttributes = "guildId";
 
 export type PointsSnapshotJobOptions = {
   priority: number;
   guildId: number;
-  doStatusUpddate: boolean; // 1) ide kell belerakni hogy mi lesz a workerFunction parametereben
+  guildPlatformId: string;
+  snapshotId: number;
 };
 
 export type PointsSnapshotJobResult = BaseJobResult & { done: true };
 
 export type PointsSnapshotJob = {
-  queueName: "take-points-snaphost";
+  queueName: "take-points-snapshot";
   children: [];
   params: BaseJobParams & PointsSnapshotJobOptions;
   result: PointsSnapshotJobResult;
