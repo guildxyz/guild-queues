@@ -9,7 +9,7 @@ export type PointsSnapshotLookupAttributes = "guildId";
 export type PointsSnapshotJobOptions = {
   priority: number;
   guildId: number;
-  guildPlatformId: string;
+  guildPlatformId: number;
   snapshotId: number;
 };
 
