@@ -1,7 +1,15 @@
 import Queue from "../base/Queue";
 
-// all manage reward child jobs only need the manageRewardAction attribute
+const sharedQueuePriorities = 2;
+const parentQueueMaxRetries = 10; // this is for the parent queue only, not the child queues
+
 const manageRewardAttributeToGet = ["manageRewardAction", "dataForAuditLog"];
+const accessCheckAttributeToGet = [
+  "userId",
+  "guildId",
+  "roleId",
+  "requirementId",
+];
 
 export const manageRewardQueue = new Queue({
   queueName: "manage-reward",
@@ -9,18 +17,18 @@ export const manageRewardQueue = new Queue({
     "children:manage-reward:params",
     "children:manage-reward:jobs",
   ],
-  priorities: 2,
+  priorities: sharedQueuePriorities,
   nextQueueNameMap: new Map([
     ["access", "access-result"],
     ["status-update", "status-update-result"],
   ]),
   nextQueuePriorityDiffMap: new Map([["status-update", -1]]),
-  maxRetries: 10, // this is for the parent queue only, not the child queues
+  maxRetries: parentQueueMaxRetries,
   children: [
     {
       queueName: "discord",
       attributesToGet: manageRewardAttributeToGet,
-      priorities: 2,
+      priorities: sharedQueuePriorities,
       delayable: true,
       limiter: {
         groupJobKey: "platformGuildId",
@@ -31,22 +39,22 @@ export const manageRewardQueue = new Queue({
     {
       queueName: "telegram",
       attributesToGet: manageRewardAttributeToGet,
-      priorities: 2,
+      priorities: sharedQueuePriorities,
     },
     {
       queueName: "github",
       attributesToGet: manageRewardAttributeToGet,
-      priorities: 2,
+      priorities: sharedQueuePriorities,
     },
     {
       queueName: "google",
       attributesToGet: manageRewardAttributeToGet,
-      priorities: 2,
+      priorities: sharedQueuePriorities,
     },
     {
       queueName: "nft",
       attributesToGet: manageRewardAttributeToGet,
-      priorities: 2,
+      priorities: sharedQueuePriorities,
     },
   ],
 });
@@ -60,7 +68,7 @@ export const accessCheckQueue = new Queue({
     "correlationId",
     "requirementIds",
   ],
-  priorities: 2,
+  priorities: sharedQueuePriorities,
   nextQueueNameMap: new Map([
     ["access", "access-logic"],
     ["status-update", "bulk-access-logic"],
@@ -68,28 +76,54 @@ export const accessCheckQueue = new Queue({
   nextQueuePriorityDiffMap: new Map([
     ["status-update", -1], // decrease priority by one (restore to previous priority)
   ]),
-  maxRetries: 10, // this is for the parent queue only, not the child queues
+  maxRetries: parentQueueMaxRetries,
   children: [
     {
       queueName: "requirement",
-      attributesToGet: ["userId", "guildId", "roleId", "requirementId"],
-      priorities: 2,
+      attributesToGet: accessCheckAttributeToGet,
+      priorities: sharedQueuePriorities,
     },
     {
       queueName: "galxe",
-      attributesToGet: ["userId", "guildId", "roleId", "requirementId"],
-      priorities: 2,
+      attributesToGet: accessCheckAttributeToGet,
+      priorities: sharedQueuePriorities,
     },
     {
       queueName: "covalent",
-      attributesToGet: ["userId", "guildId", "roleId", "requirementId"],
-      priorities: 2,
+      attributesToGet: accessCheckAttributeToGet,
+      priorities: sharedQueuePriorities,
       delayable: true,
       // maxRetries: 1, // temp disabled 2024.01.31.
       limiter: {
         reservoir: 50, // 50 in prod, 4 otherwise, we usually use a bit less here just to be safe because some checks may require more calls while others require none
         intervalMs: 1000,
       },
+    },
+    {
+      queueName: "farcaster",
+      attributesToGet: accessCheckAttributeToGet,
+      priorities: sharedQueuePriorities,
+      delayable: true,
+      limiter: {
+        reservoir: 18, // 20 RPS is the limit
+        intervalMs: 1000,
+      },
+    },
+    {
+      queueName: "eas",
+      attributesToGet: accessCheckAttributeToGet,
+      priorities: sharedQueuePriorities,
+      delayable: true,
+      limiter: {
+        reservoir: 10,
+        intervalMs: 1000,
+      },
+    },
+    {
+      queueName: "guild",
+      attributesToGet: accessCheckAttributeToGet,
+      priorities: sharedQueuePriorities,
+      maxRetries: 1,
     },
   ],
 });
