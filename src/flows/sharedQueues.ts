@@ -95,7 +95,7 @@ export const accessCheckQueue = new Queue({
       delayable: true,
       // maxRetries: 1, // temp disabled 2024.01.31.
       limiter: {
-        reservoir: 10, // 50RPS in prod, 4RPS otherwise, we usually use a bit less here just to be safe because some checks may require more calls while others require none
+        reservoir: 30, // 50RPS in prod, 4RPS otherwise, we usually use a bit less here just to be safe because some checks may require more calls while others require none
         intervalMs: 1000,
       },
     },
