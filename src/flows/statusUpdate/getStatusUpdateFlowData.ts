@@ -15,6 +15,7 @@ const getStatusUpdateFlowProps = (): FlowProps => {
     {
       queueName: "status-update-preparation",
       attributesToGet: [...defaultAttributesToGet, "recheckAccess", "guildId"],
+      maxRetries: 1,
     },
     {
       queueName: "bulk-access-check",
@@ -39,6 +40,7 @@ const getStatusUpdateFlowProps = (): FlowProps => {
         "updateMemberships",
         "existingAccesses",
       ],
+      maxRetries: 1,
     },
     {
       queueName: "bulk-update-membership",
@@ -47,6 +49,7 @@ const getStatusUpdateFlowProps = (): FlowProps => {
         "userRoleAccesses",
         "manageRewards",
       ],
+      maxRetries: 1,
     },
     {
       queueName: "bulk-prepare-manage-reward",
@@ -59,11 +62,13 @@ const getStatusUpdateFlowProps = (): FlowProps => {
       ],
       nextQueueName: "manage-reward",
       nextQueuePriorityDiffMap: new Map([["status-update", +1]]), // increase priority by one (make it less important)
+      maxRetries: 1,
     },
     manageRewardQueue,
     {
       queueName: "status-update-result",
       attributesToGet: defaultAttributesToGet,
+      maxRetries: 1,
     },
   ];
 
