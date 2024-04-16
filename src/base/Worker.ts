@@ -22,6 +22,7 @@ import {
   delay,
   handleRetries,
   getKeyExpirySec,
+  getRetries,
 } from "../utils";
 import {
   DEFAULT_LIMITER_GROUP_NAME,
@@ -507,6 +508,13 @@ export default class Worker<
                 resolve(0);
                 return;
               }
+
+              const retries = await getRetries(
+                job.id,
+                this.queue,
+                this.nonBlockingRedis
+              );
+              job.retries = retries;
 
               const start = performance.now();
               const { result, error } = await this.executeWithDeadline(job);

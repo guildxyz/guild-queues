@@ -181,6 +181,19 @@ export const getQueueNameJobIdPair = (
   jobId: string
 ): `${string}-${string}` => `${queueName}-${jobId}`;
 
+export const getRetries = async (
+  jobId: string,
+  queue: Queue,
+  nonBlockingRedis: RedisClient
+) => {
+  const jobKey = keyFormatter.job(jobId);
+  const retriesKey = keyFormatter.retries(queue.name);
+
+  const retries = +(await nonBlockingRedis.hGet(jobKey, retriesKey)) || 0;
+
+  return retries;
+};
+
 /**
  * Check if the job should be retried, if yes puts it back to the waiting queue
  * @returns whether the job was "retried", if yes the current number of retries
@@ -199,7 +212,7 @@ export const handleRetries = async (
   );
   const retriesKey = keyFormatter.retries(queue.name);
 
-  const retries = +(await nonBlockingRedis.hGet(jobKey, retriesKey)) || 0;
+  const retries = await getRetries(jobId, queue, nonBlockingRedis);
 
   if (retries < queue.maxRetries) {
     await nonBlockingRedis
