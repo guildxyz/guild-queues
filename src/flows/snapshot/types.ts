@@ -11,6 +11,7 @@ export type PointsSnapshotJobOptions = {
   guildId: number;
   guildPlatformId: number;
   snapshotId: number;
+  shouldStatusUpdate: boolean;
 };
 
 export type PointsSnapshotJobResult = BaseJobResult & { done: true };
