@@ -14,7 +14,12 @@ const getAccessFlowProps = (): FlowProps => {
   const queueOptions: (QueueOptions<AccessFlowJob["queueName"]> | Queue)[] = [
     {
       queueName: "access-preparation",
-      attributesToGet: [...defaultAttributesToGet, "recheckAccess", "guildId"],
+      attributesToGet: [
+        ...defaultAttributesToGet,
+        "recheckAccess",
+        "saveClaimData",
+        "guildId",
+      ],
     },
     accessCheckQueue,
     {
@@ -32,7 +37,6 @@ const getAccessFlowProps = (): FlowProps => {
         "roleAccesses",
         "manageRewards",
         "shareSocials",
-        "saveClaimData",
         "rootAuditLogId",
       ],
     },
