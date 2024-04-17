@@ -1,5 +1,6 @@
 import Queue from "../../base/Queue";
 import { QueueOptions } from "../../base/types";
+import { POINTS_SNAPSHOT_QUEUE_MAX_RETRIES } from "../../static";
 import { FlowProps } from "../types";
 import { PointsSnapshotJob } from "./types";
 
@@ -16,7 +17,7 @@ const getSnapshotProps = (): FlowProps => {
           "snapshotId",
           "shouldStatusUpdate",
         ],
-        maxRetries: 10,
+        maxRetries: POINTS_SNAPSHOT_QUEUE_MAX_RETRIES,
       },
     ];
 
