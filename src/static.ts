@@ -4,6 +4,8 @@ export const LOCK_KEY_PREFIX = "lock";
 export const JOB_KEY_PREFIX = "job";
 export const COUNTER_KEY_PREFIX = "counter";
 
+export const POINTS_SNAPSHOT_QUEUE_MAX_RETRIES = 10;
+
 // lease a job for this amount of time
 export const DEFAULT_LOCK_SEC = 60 * 3;
 // wait this amount of time for jobs before checking if the worker is still running

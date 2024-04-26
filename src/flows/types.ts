@@ -12,6 +12,12 @@ import {
   MessagingLookupAttributes,
 } from "./messaging/types";
 import {
+  PointsSnapshotContent,
+  PointsSnapshotJob,
+  PointsSnapshotJobOptions,
+  PointsSnapshotLookupAttributes,
+} from "./snapshot/types";
+import {
   CreateStatusUpdateJobOptions,
   StatusUpdateFlowJob,
   StatusUpdateJobContent,
@@ -36,6 +42,12 @@ export type FlowTypes = {
     content: MessagingContent;
     createJobOptions: MessagingJobOptions;
     lookupAttributes: MessagingLookupAttributes;
+  };
+  "points-snapshot": {
+    job: PointsSnapshotJob;
+    content: PointsSnapshotContent;
+    createJobOptions: PointsSnapshotJobOptions;
+    lookupAttributes: PointsSnapshotLookupAttributes;
   };
 };
 

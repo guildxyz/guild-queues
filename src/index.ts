@@ -8,3 +8,4 @@ export * from "./flows/flows";
 export * from "./flows/access/types";
 export * from "./flows/statusUpdate/types";
 export * from "./flows/messaging/types";
+export * from "./flows/snapshot/types";

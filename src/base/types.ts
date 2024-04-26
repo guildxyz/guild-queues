@@ -103,6 +103,7 @@ export type BaseJobParams = {
   priority: number;
   correlationId: string;
   delay?: boolean;
+  retries?: number;
 };
 
 /**
