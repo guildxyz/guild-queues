@@ -39,6 +39,7 @@ import {
   FAILED_QUEUE_FIELD,
   IS_DELAY_FIELD,
 } from "../static";
+import QueuesClient from "./QueuesClient";
 
 /**
  * Defines a worker, the framework for job execution
@@ -100,7 +101,12 @@ export default class Worker<
   /**
    * Provided correlator
    */
-  private readonly correlator: ICorrelator;
+  protected readonly correlator: ICorrelator;
+
+  /**
+   * Reference of the QueueClient
+   */
+  protected readonly queueClient: QueuesClient;
 
   /**
    * Set the properties, generate workerId, initialize redis clients, etc.
@@ -115,6 +121,7 @@ export default class Worker<
       lockTimeSec,
       blockTimeoutSec,
       correlator,
+      queueClient,
     } = options;
 
     this.queue = queue;
@@ -127,6 +134,7 @@ export default class Worker<
     this.nonBlockingRedis = createClient(redisClientOptions);
     this.id = uuidv7();
     this.status = "ready";
+    this.queueClient = queueClient;
   }
 
   /**
@@ -372,7 +380,7 @@ export default class Worker<
       const readyTimestamp =
         nextTimeWindowStart +
         Math.floor(enqueuedCount / this.queue.limiter.reservoir) *
-          this.queue.limiter.intervalMs;
+        this.queue.limiter.intervalMs;
 
       await this.delayJob(job.id, job.priority, "limiter", readyTimestamp);
 

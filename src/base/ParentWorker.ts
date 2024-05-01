@@ -1,5 +1,6 @@
 /* eslint-disable no-await-in-loop */
 /* eslint-disable no-constant-condition */
+import { uuidv7 } from "uuidv7";
 import {
   delay,
   generateJobId,
@@ -22,6 +23,7 @@ import {
   DONE_FIELD,
   EXTRA_LOCK_SEC,
 } from "../static";
+import { ManageRewardChildParams } from "../flows/access/types";
 
 /**
  * Special worker which only creates child jobs and checks their status periodically
@@ -68,47 +70,93 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
     if (jobs.length === 0) {
       const transaction = this.nonBlockingRedis.multi();
       const newJobs: string[] = [];
-      params.forEach((param) => {
-        if (!param.childName) {
-          this.logger.warn(
-            "Child name is missing in child params",
-            propertiesToLog
+      await Promise.all(
+        params.map(async (param) => {
+          if (!param.childName) {
+            this.logger.warn(
+              "Child name is missing in child params",
+              propertiesToLog
+            );
+            return;
+          }
+
+          const priority = param.priority || job.priority;
+
+          if (param.childName === "discord") {
+            // TODO sql injection?
+            const result = await this.queueClient.postgresClient.query(
+              `INSERT INTO river_job (
+                      state,
+                      attempt,
+                      max_attempts,
+                      priority,
+                      kind,
+                      queue,
+                      args
+                  )
+              VALUES (
+                      'available',
+                      0,
+                      3,
+                      ${priority},
+                      'manage_roles_discord',
+                      'default',
+                      '{"job": ${JSON.stringify(
+                (param as any as ManageRewardChildParams)
+                  .manageRewardAction
+              )}, "job_id": ${uuidv7()}, "correlation_id": ${this.correlator.getId()}}'
+                  )
+              returning id;`
+              // [
+              //   priority,
+              //   JSON.stringify(
+              //     (param as any as ManageRewardChildParams).manageRewardAction
+              //   ),
+              //   uuidv7(),
+              //   this.correlator.getId(),
+              // ]
+            );
+            this.logger.info("river job created", {
+              riverJobId: result.rows[0].id,
+              param,
+              command: result.command, // TODO remove
+            });
+            return;
+          }
+
+          // the child flow name is composed of the parent queue name and the child name
+          const childFlowName = `${parentQueueName}:${param.childName}`;
+
+          // generate child job id
+          const childJobId = generateJobId(childFlowName);
+
+          const childJobKey = keyFormatter.job(childJobId);
+
+          const childQueueKey = keyFormatter.childWaitingQueueName(
+            parentQueueName,
+            param.childName,
+            priority
           );
-          return;
-        }
 
-        // the child flow name is composed of the parent queue name and the child name
-        const childFlowName = `${parentQueueName}:${param.childName}`;
+          const childJob = param;
+          childJob.priority = priority;
+          childJob.flowName = childFlowName;
+          childJob.correlationId = job.correlationId;
+          delete childJob.childName;
 
-        // generate child job id
-        const childJobId = generateJobId(childFlowName);
+          // create child job state
+          transaction.hSet(childJobKey, objectToStringEntries(childJob));
+          transaction.expire(
+            childJobKey,
+            getKeyExpirySec(childJob.flowName, childJob.priority)
+          );
+          // put it to the child queue
+          transaction.rPush(childQueueKey, childJobId);
 
-        const childJobKey = keyFormatter.job(childJobId);
-
-        const childQueueKey = keyFormatter.childWaitingQueueName(
-          parentQueueName,
-          param.childName,
-          param.priority || job.priority
-        );
-
-        const childJob = param;
-        childJob.priority = childJob.priority || job.priority;
-        childJob.flowName = childFlowName;
-        childJob.correlationId = job.correlationId;
-        delete childJob.childName;
-
-        // create child job state
-        transaction.hSet(childJobKey, objectToStringEntries(childJob));
-        transaction.expire(
-          childJobKey,
-          getKeyExpirySec(childJob.flowName, childJob.priority)
-        );
-        // put it to the child queue
-        transaction.rPush(childQueueKey, childJobId);
-
-        // also store the child job keys for checking
-        newJobs.push(childJobKey);
-      });
+          // also store the child job keys for checking
+          newJobs.push(childJobKey);
+        })
+      );
 
       // save the generated jobs to the parent
       transaction.hSet(jobKey, childJobsKey, JSON.stringify(newJobs));

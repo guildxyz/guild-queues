@@ -1,4 +1,5 @@
 import { RedisClientOptions, createClient } from "redis";
+import { Client as PgClient } from "pg";
 import {
   ArrayElement,
   ICorrelator,
@@ -46,10 +47,16 @@ export default class QueuesClient {
    */
   private readonly correlator: ICorrelator;
 
+  /**
+   * Postgres client instance for river queue
+   */
+  public readonly postgresClient: PgClient;
+
   constructor(options: {
     redisClientOptions: RedisClientOptions;
     logger: ILogger;
     correlator: ICorrelator;
+    postgresUrl?: string;
   }) {
     const { logger, redisClientOptions } = options;
 
@@ -57,6 +64,11 @@ export default class QueuesClient {
     this.redisClientOptions = redisClientOptions;
     this.redis = createClient(redisClientOptions);
     this.correlator = options.correlator;
+
+    if (options.postgresUrl) {
+      this.postgresClient = new PgClient(options.postgresUrl);
+      this.postgresClient.connect();
+    }
   }
 
   /**
@@ -358,6 +370,7 @@ export default class QueuesClient {
         redisClientOptions: this.redisClientOptions,
         logger: this.logger,
         correlator: this.correlator,
+        queueClient: this,
       });
       createdWorkers.push(worker);
     }
@@ -396,6 +409,7 @@ export default class QueuesClient {
         redisClientOptions: this.redisClientOptions,
         logger: this.logger,
         correlator: this.correlator,
+        queueClient: this,
       });
       createdParentWorkers.push(worker);
     }
@@ -445,6 +459,7 @@ export default class QueuesClient {
         redisClientOptions: this.redisClientOptions,
         logger: this.logger,
         correlator: this.correlator,
+        queueClient: this,
       });
       createdWorkers.push(worker);
     }
