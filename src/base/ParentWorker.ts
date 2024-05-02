@@ -82,7 +82,29 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
 
           const priority = param.priority || job.priority;
 
-          if (param.childName === "discord") {
+          // the child flow name is composed of the parent queue name and the child name
+          const childFlowName = `${parentQueueName}:${param.childName}`;
+
+          // generate child job id
+          const childJobId = generateJobId(childFlowName);
+
+          const childJobKey = keyFormatter.job(childJobId);
+
+          const childQueueKey = keyFormatter.childWaitingQueueName(
+            parentQueueName,
+            param.childName,
+            priority
+          );
+
+          const childJob = param;
+          childJob.priority = priority;
+          childJob.flowName = childFlowName;
+          childJob.correlationId = job.correlationId;
+
+          const isRiverJob = param.childName === "discord";
+
+          // insert riverjob to postgres
+          if (isRiverJob) {
             const result = await this.queueClient.postgresClient.query(
               `INSERT INTO river_job (
                       state,
@@ -113,33 +135,21 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
                 }),
               ]
             );
+
+            const riverJobId = result.rows[0].id;
+
             this.logger.info("river job created", {
-              riverJobId: result.rows[0].id,
+              riverJobId,
               param,
-              command: result.command, // TODO remove
             });
-            return;
+
+            childJob.done = true;
+            childJob.success = true;
+            childJob.isRiverJob = true;
+            childJob.riverJobId = riverJobId;
+          } else {
+            delete childJob.childName;
           }
-
-          // the child flow name is composed of the parent queue name and the child name
-          const childFlowName = `${parentQueueName}:${param.childName}`;
-
-          // generate child job id
-          const childJobId = generateJobId(childFlowName);
-
-          const childJobKey = keyFormatter.job(childJobId);
-
-          const childQueueKey = keyFormatter.childWaitingQueueName(
-            parentQueueName,
-            param.childName,
-            priority
-          );
-
-          const childJob = param;
-          childJob.priority = priority;
-          childJob.flowName = childFlowName;
-          childJob.correlationId = job.correlationId;
-          delete childJob.childName;
 
           // create child job state
           transaction.hSet(childJobKey, objectToStringEntries(childJob));
@@ -147,8 +157,11 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
             childJobKey,
             getKeyExpirySec(childJob.flowName, childJob.priority)
           );
-          // put it to the child queue
-          transaction.rPush(childQueueKey, childJobId);
+
+          if (!isRiverJob) {
+            // put it to the child queue
+            transaction.rPush(childQueueKey, childJobId);
+          }
 
           // also store the child job keys for checking
           newJobs.push(childJobKey);
