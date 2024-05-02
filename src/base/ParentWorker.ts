@@ -83,7 +83,6 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
           const priority = param.priority || job.priority;
 
           if (param.childName === "discord") {
-            // TODO sql injection?
             const result = await this.queueClient.postgresClient.query(
               `INSERT INTO river_job (
                       state,
@@ -98,23 +97,21 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
                       'available',
                       0,
                       3,
-                      ${priority},
+                      $1,
                       'manage_roles_discord',
                       'default',
-                      '{"job": ${JSON.stringify(
-                (param as any as ManageRewardChildParams)
-                  .manageRewardAction
-              )}, "job_id": ${uuidv7()}, "correlation_id": ${this.correlator.getId()}}'
+                      $2
                   )
-              returning id;`
-              // [
-              //   priority,
-              //   JSON.stringify(
-              //     (param as any as ManageRewardChildParams).manageRewardAction
-              //   ),
-              //   uuidv7(),
-              //   this.correlator.getId(),
-              // ]
+              returning id;`,
+              [
+                priority,
+                JSON.stringify({
+                  job: (param as any as ManageRewardChildParams)
+                    .manageRewardAction,
+                  job_id: uuidv7(),
+                  correlation_id: this.correlator.getId(),
+                }),
+              ]
             );
             this.logger.info("river job created", {
               riverJobId: result.rows[0].id,
