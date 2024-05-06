@@ -120,7 +120,7 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
                       0,
                       3,
                       $1,
-                      'manage_roles_discord',
+                      'manage_reward_discord',
                       'default',
                       $2
                   )
