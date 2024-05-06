@@ -103,11 +103,6 @@ export const accessCheckQueue = new Queue({
       queueName: "farcaster",
       attributesToGet: accessCheckAttributeToGet,
       priorities: sharedQueuePriorities,
-      delayable: true,
-      limiter: {
-        reservoir: 18, // 20 RPS is the limit
-        intervalMs: 1000,
-      },
     },
     {
       queueName: "eas",
