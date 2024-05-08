@@ -6,6 +6,7 @@ import {
   BaseJobResult,
   ICorrelator,
   ManagedJobFields,
+  BaseChildParam,
 } from "../../base/types";
 import { DONE_FIELD } from "../../static";
 
@@ -71,12 +72,12 @@ export type AccessPreparationParams = AccessFlowParams & {
  */
 export type AccessCheckChildParams = {
   childName:
-    | "requirement"
-    | "covalent"
-    | "galxe"
-    | "farcaster"
-    | "eas"
-    | "guild";
+  | "requirement"
+  | "covalent"
+  | "galxe"
+  | "farcaster"
+  | "eas"
+  | "guild";
   userId: number;
   guildId: number;
   roleId: number;
@@ -89,13 +90,13 @@ export type AccessCheckChildParams = {
 export type AccessPreparationResult = AccessFlowResult &
   (
     | {
-        nextQueue: "access-check";
-        "children:access-check:params": AccessCheckChildParams[];
-      }
+      nextQueue: "access-check";
+      "children:access-check:params": AccessCheckChildParams[];
+    }
     | {
-        nextQueue: "update-membership";
-        "children:access-check:params"?: never;
-      }
+      nextQueue: "update-membership";
+      "children:access-check:params"?: never;
+    }
   );
 
 /**
@@ -215,7 +216,7 @@ export type DataForRewardAuditLog = {
 /**
  * Params to create a manage-reward child job
  */
-export type ManageRewardChildParams = {
+export type ManageRewardChildParams = Partial<BaseChildParam> & {
   childName: string;
   platformGuildId: string;
   manageRewardAction: ManageRewardBase; // nested, because this way we only need to HGET one field

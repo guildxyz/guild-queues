@@ -11,6 +11,7 @@ import {
   FAILED_QUEUE_FIELD,
   IS_DELAY_FIELD,
 } from "../static";
+import QueuesClient from "./QueuesClient";
 
 /* ========== Interfaces ========== */
 
@@ -240,6 +241,7 @@ export type WorkerOptions<
    */
   redisClientOptions: RedisClientOptions;
   correlator: ICorrelator;
+  queueClient: QueuesClient;
 };
 
 /**
