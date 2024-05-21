@@ -73,6 +73,7 @@ export type AccessPreparationParams = AccessFlowParams & {
 export type AccessCheckChildParams = {
   childName:
   | "requirement"
+  | "river"
   | "covalent"
   | "galxe"
   | "farcaster"
@@ -284,6 +285,7 @@ export type AccessCheckJob = {
   queueName: "access-check";
   children: [
     { queueName: "requirement" },
+    { queueName: "river" },
     { queueName: "covalent" },
     { queueName: "galxe" },
     { queueName: "farcaster" },
