@@ -84,6 +84,12 @@ export const accessCheckQueue = new Queue({
       priorities: sharedQueuePriorities,
     },
     {
+      queueName: "gate2",
+      attributesToGet: [...accessCheckAttributeToGet, "gateRiverJobId"],
+      priorities: sharedQueuePriorities,
+      maxRetries: 3,
+    },
+    {
       queueName: "galxe",
       attributesToGet: accessCheckAttributeToGet,
       priorities: sharedQueuePriorities,

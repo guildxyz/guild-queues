@@ -73,6 +73,7 @@ export type AccessPreparationParams = AccessFlowParams & {
 export type AccessCheckChildParams = {
   childName:
   | "requirement"
+  | "gate2"
   | "covalent"
   | "galxe"
   | "farcaster"
@@ -107,6 +108,7 @@ export type AccessCheckParams = BaseJobParams & {
   guildId: number;
   roleId: number;
   requirementId: number;
+  gateRiverJobId?: number;
 };
 
 export type RequirementError = {
@@ -284,6 +286,7 @@ export type AccessCheckJob = {
   queueName: "access-check";
   children: [
     { queueName: "requirement" },
+    { queueName: "gate2" },
     { queueName: "covalent" },
     { queueName: "galxe" },
     { queueName: "farcaster" },
