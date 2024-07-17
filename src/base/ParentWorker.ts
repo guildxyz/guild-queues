@@ -105,6 +105,8 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
 
           // insert riverjob to postgres
           if (isRiverJob) {
+            const manageRewardChildParams =
+              param as any as ManageRewardChildParams;
             const result = await this.queueClient.postgresClient.query(
               `INSERT INTO river_job (
                       state,
@@ -128,8 +130,10 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
               [
                 priority,
                 JSON.stringify({
-                  job: (param as any as ManageRewardChildParams)
-                    .manageRewardAction,
+                  job: {
+                    ...manageRewardChildParams.manageRewardAction,
+                    dataForAuditLog: manageRewardChildParams.dataForAuditLog,
+                  },
                   job_id: uuidv7(),
                   correlation_id: this.correlator.getId(),
                 }),
