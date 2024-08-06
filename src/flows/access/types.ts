@@ -134,8 +134,10 @@ export type AccessCheckResult = AccessFlowResult & {
  * Params of the access-logic queue
  */
 export type AccessLogicParams = AccessFlowParams & {
-  "children:access-check:jobs": string[];
+  // "children:access-check:jobs": string[];
   updateMemberships: boolean;
+  recheckAccess: boolean;
+  saveClaimData: boolean;
 };
 
 export type RoleAccess = {
@@ -272,12 +274,12 @@ export type AccessResultResult = AccessFlowResult & {
 /**
  * AccessPreparation job definition
  */
-export type AccessPreparationJob = {
-  queueName: "access-preparation";
-  children: [];
-  params: AccessPreparationParams;
-  result: AccessPreparationResult;
-};
+// export type AccessPreparationJob = {
+//   queueName: "access-preparation";
+//   children: [];
+//   params: AccessPreparationParams;
+//   result: AccessPreparationResult;
+// };
 
 /**
  * AccessCheck job definition
@@ -303,7 +305,7 @@ export type AccessCheckJob = {
 export type AccessLogicJob = {
   queueName: "access-logic";
   children: [];
-  params: AccessLogicParams;
+  params: AccessPreparationParams;
   result: AccessLogicResult;
 };
 
@@ -357,13 +359,13 @@ export type AccessResultJob = {
  * Names of the queues in the access flow
  */
 export type AccessFlowJob =
-  | AccessPreparationJob
   | AccessCheckJob
   | AccessLogicJob
   | UpdateMembershipJob
   | PrepareManageRewardJob
   | ManageRewardJob
   | AccessResultJob;
+  // | AccessPreparationJob
 
 export type AccessLookupAttributes = "userId" | "roleIds" | "guildId";
 
@@ -381,7 +383,6 @@ export type AccessJobContent = CreateAccessJobOptions &
   BaseJobParams &
   ManagedJobFields &
   AccessFlowResult &
-  Omit<AccessPreparationResult, "nextQueue"> &
   Omit<AccessLogicResult, "nextQueue"> &
   Omit<UpdateMembershipResult, "nextQueue"> &
   Omit<PrepareManageRewardResult, "nextQueue"> &
@@ -396,3 +397,4 @@ export type AccessJobContent = CreateAccessJobOptions &
     "children:manage-reward:jobs": ManageRewardChild[];
     "children:manage-reward:results": ManageRewardChild[];
   };
+  // Omit<AccessPreparationResult, "nextQueue"> &
