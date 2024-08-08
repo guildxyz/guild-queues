@@ -28,18 +28,19 @@ const getAccessFlowProps = (): FlowProps => {
         ...defaultAttributesToGet,
         "children:access-check:jobs",
         "updateMemberships",
-      ],
-    },
-    {
-      queueName: "update-membership",
-      attributesToGet: [
-        ...defaultAttributesToGet,
-        "roleAccesses",
-        "manageRewards",
-        "shareSocials",
         "rootAuditLogId",
       ],
     },
+    // {
+    //   queueName: "update-membership",
+    //   attributesToGet: [
+    //     ...defaultAttributesToGet,
+    //     "roleAccesses",
+    //     "manageRewards",
+    //     "shareSocials",
+    //     "rootAuditLogId",
+    //   ],
+    // },
     {
       queueName: "prepare-manage-reward",
       attributesToGet: [
