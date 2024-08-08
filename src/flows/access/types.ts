@@ -166,6 +166,7 @@ export type AccessLogicResult = AccessFlowResult & {
     notMemberRoleIds: number[];
     roleIdAuditLogIdMap: Record<string, number>;
   };
+  roleAccesses: RoleAccess[];
 };
 
 /**
