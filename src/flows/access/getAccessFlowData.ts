@@ -12,24 +12,22 @@ const getAccessFlowProps = (): FlowProps => {
 
   // queues of the AccessFlow
   const queueOptions: (QueueOptions<AccessFlowJob["queueName"]> | Queue)[] = [
-    // {
-    //   queueName: "access-preparation",
-    //   attributesToGet: [
-    //     ...defaultAttributesToGet,
-    //     "recheckAccess",
-    //     "saveClaimData",
-    //     "guildId",
-    //   ],
-    // },
+    {
+      queueName: "access-preparation",
+      attributesToGet: [
+        ...defaultAttributesToGet,
+        "recheckAccess",
+        "saveClaimData",
+        "guildId",
+      ],
+    },
     accessCheckQueue,
     {
       queueName: "access-logic",
       attributesToGet: [
         ...defaultAttributesToGet,
-        // "children:access-check:jobs",
+        "children:access-check:jobs",
         "updateMemberships",
-        "recheckAccess",
-        "saveClaimData",
       ],
     },
     {
