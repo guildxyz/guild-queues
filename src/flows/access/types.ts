@@ -136,6 +136,9 @@ export type AccessCheckResult = AccessFlowResult & {
 export type AccessLogicParams = AccessFlowParams & {
   "children:access-check:jobs": string[];
   updateMemberships: boolean;
+  manageRewards: boolean;
+  shareSocials?: boolean;
+  rootAuditLogId?: number;
 };
 
 export type RoleAccess = {
@@ -157,9 +160,14 @@ export type RequirementAccess = {
  * Result of the access-logic queue
  */
 export type AccessLogicResult = AccessFlowResult & {
+  updateMembershipResult: {
+    newMembershipRoleIds: number[];
+    lostMembershipRoleIds: number[];
+    membershipRoleIds: number[];
+    notMemberRoleIds: number[];
+    roleIdAuditLogIdMap: Record<string, number>;
+  };
   roleAccesses: RoleAccess[];
-  requirementAccesses: RequirementAccess[];
-  nextQueue: "update-membership" | "access-result";
 };
 
 /**
