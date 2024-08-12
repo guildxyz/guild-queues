@@ -30,6 +30,7 @@ const getAccessFlowProps = (): FlowProps => {
         "roleAccesses",
         "updateMemberships",
         "manageRewards",
+        "shareSocials",
         "rootAuditLogId",
       ],
     },
