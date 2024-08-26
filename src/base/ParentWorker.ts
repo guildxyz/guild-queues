@@ -123,12 +123,13 @@ export default class ParentWorker extends Worker<BaseJobParams, BaseJobResult> {
                       3,
                       $1,
                       'manage_reward_discord',
-                      'default',
-                      $2
+                      $2,
+                      $3
                   )
               returning id;`,
               [
                 priority,
+                manageRewardChildParams.platformGuildId,
                 JSON.stringify({
                   job: {
                     ...manageRewardChildParams.manageRewardAction,
