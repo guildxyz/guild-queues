@@ -193,11 +193,16 @@ export type UpdateMembershipResult = AccessFlowResult & {
   };
 };
 
+type PlatformRole = {
+  platformRoleId: string;
+  platformRoleData?: AnyObject;
+};
+
 /**
  * Basic properties of a manage reward action
  */
 export type ManageRewardBase = {
-  action: "ADD" | "REMOVE";
+  action: "ADD" | "REMOVE" | "MODIFY";
   platformId: number;
   platformUserId: string;
   platformUserData?: AnyObject;
@@ -208,10 +213,9 @@ export type ManageRewardBase = {
     rolePlatformId: number;
     parentAuditLogId: number;
   }[];
-  platformRoles: {
-    platformRoleId: string;
-    platformRoleData?: AnyObject;
-  }[];
+  platformRoles?: PlatformRole[]; // This is used when action = ADD and REMOVE
+  platformRolesToAdd?: PlatformRole[]; // This is used when action = MODIFY
+  platformRolesToRemove?: PlatformRole[]; // This is used when action = MODIFY
 };
 
 export type DataForRewardAuditLog = {
