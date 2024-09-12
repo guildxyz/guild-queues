@@ -9,6 +9,7 @@ const accessCheckAttributeToGet = [
   "guildId",
   "roleId",
   "requirementId",
+  "flowId",
 ];
 
 export const manageRewardQueue = new Queue({

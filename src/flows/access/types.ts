@@ -109,6 +109,7 @@ export type AccessCheckParams = BaseJobParams & {
   roleId: number;
   requirementId: number;
   gateRiverJobId?: number;
+  flowId?: string;
 };
 
 export type RequirementError = {
