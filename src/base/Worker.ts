@@ -636,6 +636,7 @@ export default class Worker<
         "handleWorkerFunctionError skipped (job key does not exists)",
         propertiesToLog
       );
+      return;
     }
 
     const { retried, retries } = await handleRetries(
