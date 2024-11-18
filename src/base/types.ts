@@ -103,6 +103,7 @@ export type BaseJobParams = {
   flowName: FlowNames;
   priority: number;
   correlationId: string;
+  flowId?: string;
   delay?: boolean;
   retries?: number;
 };

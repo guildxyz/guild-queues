@@ -104,6 +104,7 @@ export default class Queue {
       "flowName",
       "priority",
       "correlationId",
+      "flowId",
     ];
     if (delayable) {
       defaultAttributesToGet.push("delay");
