@@ -193,7 +193,7 @@ export default class Worker<
       workerId: this.id,
     };
 
-    this.logger.info("Worker leased a job", {
+    this.logger.debug("Worker leased a job", {
       ...DEFAULT_LOG_META,
       ...propertiesToLog,
       jobId,
@@ -290,7 +290,7 @@ export default class Worker<
 
     // check if the job was removed successfully from the current queue
     if (+removedItemCount > 0) {
-      this.logger.info("Worker completed a job", {
+      this.logger.debug("Worker completed a job", {
         ...propertiesToLog,
         nextQueueLength,
         removedLockCount,
